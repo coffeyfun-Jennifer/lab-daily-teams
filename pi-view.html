@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LabDaily — PI View</title>
+<style>
+:root{--bg:#f0f4f8;--surface:#fff;--border:#e2e8f0;--primary:#2563eb;--primary-light:#eff6ff;--text:#0f172a;--text2:#475569;--text3:#94a3b8;--r:8px;--success:#16a34a;--danger:#dc2626}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+.header{background:#1e293b;color:#f1f5f9;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.header h1{font-size:16px;font-weight:800;letter-spacing:-.3px}
+.header .meta{font-size:12px;color:#94a3b8}
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-bottom:16px}
+.card-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:12px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s}
+.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-primary:hover{background:#1d4ed8}
+.btn-secondary{background:var(--surface);color:var(--text2);border-color:var(--border)}
+.btn-secondary:hover{background:var(--bg)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.fi{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--surface)}
+.ft{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;background:var(--surface);resize:vertical;min-height:100px}
+.fl{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px}
+.fg{margin-bottom:14px}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:16px}
+.tab{padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab.on{color:var(--primary);border-bottom-color:var(--primary);font-weight:700}
+.rec-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.rec-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:#f8fafc;cursor:pointer}
+.rec-body{padding:16px;display:none}
+.rec-body.open{display:block}
+.rec-section{margin-bottom:14px}
+.rec-section h4{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px}
+.rec-section p{font-size:13px;color:var(--text2);white-space:pre-wrap}
+.proj-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.file-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;background:#f8fafc}
+.file-name{flex:1;font-size:13px;font-weight:500}
+.file-meta{font-size:11px;color:var(--text3)}
+.pi-comment-box{background:var(--primary-light);border:1px solid #bfdbfe;border-radius:var(--r);padding:16px;margin-top:12px}
+.existing-comment{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--r);padding:12px;margin-bottom:10px}
+.toast{position:fixed;bottom:24px;right:24px;background:#1e293b;color:#f1f5f9;padding:10px 18px;border-radius:var(--r);font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:999}
+.toast.show{opacity:1}
+.loading{text-align:center;padding:60px 24px;color:var(--text3)}
+.err{text-align:center;padding:60px 24px}
+.err h2{color:var(--danger);margin-bottom:8px}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🔬 LabDaily — PI View</h1>
+    <div class="meta" id="hdr-meta">Loading…</div>
+  </div>
+  <div style="font-size:12px;color:#64748b">Read-only • PI Comments enabled</div>
+</div>
+
+<div class="wrap">
+  <div id="app"><div class="loading">⏳ Loading records…</div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const params=new URLSearchParams(location.search);
+const GIST_ID=params.get('gist');
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+function fd(ds){
+  if(!ds)return'';
+  const d=new Date(ds+'T12:00:00');
+  return d.toLocaleDateString('en-US',{weekday:'short',month:'long',day:'numeric',year:'numeric'});
+}
+
+function esc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtSize(bytes){
+  if(!bytes)return'';
+  if(bytes<1024)return bytes+'B';
+  if(bytes<1048576)return(bytes/1024).toFixed(1)+'KB';
+  return(bytes/1048576).toFixed(1)+'MB';
+}
+
+// PI comments stored in localStorage keyed by gist ID
+function getCmts(){
+  try{return JSON.parse(localStorage.getItem('pi_cmts_'+GIST_ID)||'{}')}catch{return{}}
+}
+function saveCmt(recId,text){
+  const all=getCmts();
+  all[recId]={text,updatedAt:new Date().toISOString()};
+  localStorage.setItem('pi_cmts_'+GIST_ID,JSON.stringify(all));
+}
+
+async function load(){
+  if(!GIST_ID){
+    document.getElementById('app').innerHTML=`<div class="err"><h2>No link provided</h2><p>Ask your researcher to re-send the PI view link.</p></div>`;
+    return;
+  }
+  try{
+    const res=await fetch(`https://api.github.com/gists/${GIST_ID}`);
+    if(!res.ok)throw new Error('Could not load records ('+res.status+')');
+    const gist=await res.json();
+    const raw=gist.files['labdaily-pi.json']?.content;
+    if(!raw)throw new Error('Data file not found in Gist');
+    const data=JSON.parse(raw);
+    render(data);
+  }catch(e){
+    document.getElementById('app').innerHTML=`<div class="err"><h2>❌ Could not load</h2><p style="color:var(--text2)">${esc(e.message)}</p></div>`;
+  }
+}
+
+function render(data){
+  document.getElementById('hdr-meta').textContent=
+    `${esc(data.researcher)} · ${esc(data.lab)} · Published ${new Date(data.publishedAt).toLocaleDateString()}`;
+  document.title=`LabDaily — ${data.researcher}'s Records`;
+
+  const projects=data.projects||[];
+  const records=(data.records||[]).sort((a,b)=>b.date.localeCompare(a.date));
+  const files=data.sharedFiles||[];
+  const cmts=getCmts();
+
+  const projMap={};
+  projects.forEach(p=>projMap[p.id]=p);
+
+  let html=`
+    <!-- Info bar -->
+    <div class="card" style="padding:12px 16px;margin-bottom:20px">
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+        <div><span style="font-size:11px;color:var(--text3);display:block">RESEARCHER</span><strong>${esc(data.researcher)}</strong></div>
+        <div><span style="font-size:11px;color:var(--text3);display:block">LAB</span><strong>${esc(data.lab)}</strong></div>
+        <div><span style="font-size:11px;color:var(--text3);display:block">SUPERVISOR</span><strong>${esc(data.pi)}</strong></div>
+        <div><span style="font-size:11px;color:var(--text3);display:block">RECORDS</span><strong>${records.length}</strong></div>
+        <div><span style="font-size:11px;color:var(--text3);display:block">SHARED FILES</span><strong>${files.length}</strong></div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab on" onclick="switchTab('tab-records','tab-files',this)">📋 Lab Records (${records.length})</div>
+      <div class="tab" onclick="switchTab('tab-files','tab-records',this)">📎 Shared Files (${files.length})</div>
+    </div>
+
+    <!-- Records tab -->
+    <div id="tab-records">`;
+
+  if(!records.length){
+    html+=`<p style="color:var(--text3);text-align:center;padding:40px">No records shared yet.</p>`;
+  }
+
+  records.forEach(r=>{
+    const linkedProjs=(r.projIds||[]).map(id=>projMap[id]).filter(Boolean);
+    const exps=r.experiments||[];
+    const cmt=cmts[r.id];
+    html+=`
+      <div class="rec-card">
+        <div class="rec-header" onclick="toggleRec('rec-${r.id}')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div>
+              <div style="font-weight:700;font-size:14px">${fd(r.date)}</div>
+              <div style="font-size:12px;color:var(--text3)">${esc((r.summary||'').slice(0,80))}${(r.summary||'').length>80?'…':''}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${linkedProjs.map(p=>`<span class="badge" style="background:${p.color}18;color:${p.color};border:1px solid ${p.color}40"><span class="proj-dot" style="background:${p.color}"></span>${esc(p.name)}</span>`).join('')}
+            ${cmt?`<span class="badge" style="background:#f0fdf4;color:var(--success);border:1px solid #bbf7d0">💬 PI commented</span>`:''}
+            <span style="color:var(--text3);font-size:18px">▾</span>
+          </div>
+        </div>
+        <div class="rec-body" id="rec-${r.id}">
+
+          ${r.summary?`<div class="rec-section"><h4>Summary</h4><p>${esc(r.summary)}</p></div>`:''}
+          ${r.problems?`<div class="rec-section"><h4>Problems / Troubleshooting</h4><p>${esc(r.problems)}</p></div>`:''}
+          ${r.nextSteps?`<div class="rec-section"><h4>Next Steps</h4><p>${esc(r.nextSteps)}</p></div>`:''}
+
+          ${exps.length?`
+            <div class="rec-section">
+              <h4>Experiments (${exps.length})</h4>
+              ${exps.map(e=>{
+                const ep=projMap[e.projId];
+                return`<div style="padding:8px 10px;border-radius:6px;border-left:3px solid ${ep?ep.color:'var(--border)'};background:var(--bg);margin-bottom:6px">
+                  <div style="font-weight:600;font-size:13px">${esc(e.title||'Untitled')}</div>
+                  ${e.objective?`<div class="file-meta">Objective: ${esc(e.objective)}</div>`:''}
+                  ${e.results?`<div class="file-meta">Results: ${esc(e.results)}</div>`:''}
+                </div>`;
+              }).join('')}
+            </div>`:''}
+
+          ${r.elnDetail?`
+            <div class="rec-section">
+              <h4>Detailed Notes</h4>
+              <div style="border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--bg);font-size:13px;line-height:1.8">${r.elnDetail}</div>
+            </div>`:''}
+
+          <!-- PI Comment -->
+          <div class="pi-comment-box">
+            <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:8px">💬 PI Comment</div>
+            ${cmt?`<div class="existing-comment">
+              <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Last updated ${new Date(cmt.updatedAt).toLocaleString()}</div>
+              <div style="font-size:13px;white-space:pre-wrap">${esc(cmt.text)}</div>
+            </div>`:''}
+            <textarea class="ft" id="cmt-${r.id}" placeholder="Write your feedback, suggestions, or approval here…" style="min-height:80px">${esc(cmt?.text||'')}</textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+              <button class="btn btn-primary btn-sm" onclick="submitCmt('${r.id}','${esc(data.email)}')">💾 Save Comment</button>
+              <button class="btn btn-secondary btn-sm" onclick="emailCmt('${r.id}','${esc(data.email)}','${esc(fd(r.date))}')">📧 Send via Email</button>
+              <span class="file-meta" id="cmt-st-${r.id}"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>`;
+  });
+
+  html+=`</div>
+
+    <!-- Files tab -->
+    <div id="tab-files" class="hidden">`;
+
+  if(!files.length){
+    html+=`<p style="color:var(--text3);text-align:center;padding:40px">No files shared yet.</p>`;
+  } else {
+    files.forEach(f=>{
+      html+=`<div class="file-row">
+        <div style="font-size:20px">${fileIcon(f.type)}</div>
+        <div style="flex:1">
+          <div class="file-name">${esc(f.name)}</div>
+          <div class="file-meta">${fd(f.date)} ${f.size?'· '+fmtSize(f.size):''}</div>
+        </div>
+        ${f.data
+          ?`<a class="btn btn-secondary btn-sm" href="${f.data}" download="${esc(f.name)}">⬇ Download</a>`
+          :`<span class="file-meta">File too large to share via link — ask researcher directly</span>`
+        }
+      </div>`;
+    });
+  }
+
+  html+=`</div>`;
+
+  document.getElementById('app').innerHTML=html;
+}
+
+function toggleRec(id){
+  const el=document.getElementById(id);
+  el.classList.toggle('open');
+}
+
+function switchTab(show,hide,el){
+  document.getElementById(show).classList.remove('hidden');
+  document.getElementById(hide).classList.add('hidden');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function submitCmt(recId,email){
+  const text=document.getElementById('cmt-'+recId).value.trim();
+  if(!text){toast('Please write a comment first.');return;}
+  saveCmt(recId,text);
+  const st=document.getElementById('cmt-st-'+recId);
+  if(st)st.textContent='✅ Saved at '+new Date().toLocaleTimeString();
+  toast('Comment saved!');
+}
+
+function emailCmt(recId,email,dateStr){
+  const text=document.getElementById('cmt-'+recId).value.trim();
+  if(!text){toast('Please write a comment first.');return;}
+  saveCmt(recId,text);
+  const subject=encodeURIComponent('PI Comment — Lab Record '+dateStr);
+  const body=encodeURIComponent('PI Comment for '+dateStr+':\n\n'+text+'\n\n— Dr. Liu');
+  window.open('mailto:'+email+'?subject='+subject+'&body='+body);
+}
+
+function fileIcon(type){
+  if(!type)return'📄';
+  if(type.startsWith('image/'))return'🖼';
+  if(type.includes('pdf'))return'📕';
+  if(type.includes('word')||type.includes('document'))return'📝';
+  if(type.includes('sheet')||type.includes('excel'))return'📊';
+  if(type.includes('presentation')||type.includes('powerpoint'))return'📊';
+  return'📄';
+}
+
+load();
+</script>
+</body>
+</html>

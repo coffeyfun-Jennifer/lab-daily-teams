@@ -385,6 +385,7 @@ function renderToday(){
 
   setTB('Today — '+fd(td),`
     <button class="btn btn-secondary btn-sm" onclick="exportPrint()">⬇ Export PDF</button>
+    <button class="btn btn-secondary btn-sm" onclick="openShareModal()" title="Share records with PI">🔗 Share with PI</button>
     <button class="btn btn-primary btn-sm" onclick="openRecModal('${td}')">${rec?'✎ Edit Record':'+ New Record'}</button>
   `);
 
@@ -1066,6 +1067,21 @@ function renderSettings(){
     </div>
     <div>
       <div class="card mb4">
+        <div class="card-title mb3">🔗 PI Sharing (Dr. Liu)</div>
+        <p class="sm muted mb3">Share a read-only link with your PI. They can view records and add comments.</p>
+        <div class="fg"><label class="fl">PI Email (for comment replies)</label>
+          <input class="fi" id="s-pi-email" type="email" value="${esc(c.piEmail||'')}" placeholder="drliui@university.edu">
+        </div>
+        <div class="fg"><label class="fl">GitHub Token <span class="xs muted">(stored only in your browser)</span></label>
+          <input class="fi" id="s-gh-token" type="password" value="${esc(c.ghToken||'')}" placeholder="ghp_xxxx…" autocomplete="off">
+        </div>
+        <button class="btn btn-primary" onclick="saveProfile()">Save Settings</button>
+        ${c.ghToken?`<div class="mt3 p3" style="background:var(--primary-light);border-radius:var(--r)">
+          <p class="sm mb2"><strong>📤 Publish records for PI:</strong> go to <em>Today Summary</em> and click <strong>Share with PI</strong>.</p>
+          ${c.gistId?`<p class="sm muted">Last published link:<br><a href="https://coffeyfun-jennifer.github.io/lab-daily/pi-view.html?gist=${c.gistId}" target="_blank" style="word-break:break-all;color:var(--primary)">pi-view.html?gist=${c.gistId}</a></p>`:''}
+        </div>`:'<p class="xs muted mt2">Add your GitHub token above to enable PI sharing.</p>'}
+      </div>
+      <div class="card mb4">
         <div class="card-title mb3">💾 Backup & Export</div>
         <p class="sm muted mb3">All data is stored in your browser localStorage. Export regularly.</p>
         <div class="flex col g2u">
@@ -1083,12 +1099,24 @@ function renderSettings(){
 }
 
 function saveProfile(){
-  const c={name:document.getElementById('s-name').value,role:document.getElementById('s-role').value,lab:document.getElementById('s-lab').value,pi:document.getElementById('s-pi').value,email:document.getElementById('s-email').value,inst:document.getElementById('s-inst').value};
+  const prev=cfg();
+  const c={
+    name:document.getElementById('s-name').value,
+    role:document.getElementById('s-role').value,
+    lab:document.getElementById('s-lab').value,
+    pi:document.getElementById('s-pi').value,
+    email:document.getElementById('s-email').value,
+    inst:document.getElementById('s-inst').value,
+    piEmail:(document.getElementById('s-pi-email')||{}).value||prev.piEmail||'',
+    ghToken:(document.getElementById('s-gh-token')||{}).value||prev.ghToken||'',
+    gistId:prev.gistId||''
+  };
   DB.s('cfg',c);
   document.getElementById('uname').textContent=c.name||'Researcher';
   document.getElementById('uavatar').textContent=(c.name||'R')[0].toUpperCase();
   document.getElementById('urole').textContent=c.role||'Lab Member';
-  toast('Profile saved!','ok');
+  toast('Settings saved!','t-ok');
+  renderSettings();
 }
 
 function exportData(){
@@ -2805,6 +2833,147 @@ const RENDER={
   refreshProjSubnav();
   go('today');
 })();
+
+// ══════════════════════════════
+//  PI SHARING
+// ══════════════════════════════
+function openShareModal(){
+  const c=cfg();
+  if(!c.ghToken){
+    if(confirm('Add your GitHub Token in Settings first to enable PI sharing.\n\nGo to Settings now?'))go('settings');
+    return;
+  }
+  const records=DB.list('records').sort((a,b)=>b.date.localeCompare(a.date));
+  const projects=DB.list('projects');
+  const atts=DB.list('atts');
+
+  modal(`
+    <div class="mh"><h2>🔗 Share with PI</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <p class="sm muted mb3">Select which records to share. Dr. Liu will see them in read-only mode and can add PI comments.</p>
+
+      <div class="fg">
+        <div class="flex ic jb mb2">
+          <label class="fl" style="margin:0">Records to share</label>
+          <label style="font-size:12px;color:var(--primary);cursor:pointer">
+            <input type="checkbox" id="sh-all" onchange="document.querySelectorAll('.sh-rec-cb').forEach(c=>c.checked=this.checked)"> Select all
+          </label>
+        </div>
+        <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);padding:6px">
+          ${records.length ? records.slice(0,30).map(r=>`
+            <label style="display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;hover:background:var(--surface2)">
+              <input type="checkbox" class="sh-rec-cb" value="${r.id}" checked style="margin-top:2px">
+              <div>
+                <div style="font-size:13px;font-weight:600">${fd(r.date)}</div>
+                <div class="xs muted">${esc((r.summary||'').slice(0,80))}</div>
+              </div>
+            </label>`).join('')
+          : '<p class="sm muted p2">No records yet.</p>'}
+        </div>
+      </div>
+
+      <div class="fg mt3">
+        <label class="fl">Files to share (Dr. Liu can download these)</label>
+        <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);padding:6px">
+          ${atts.length ? atts.slice(0,50).map(a=>`
+            <label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer">
+              <input type="checkbox" class="sh-att-cb" value="${a.id}">
+              <span style="font-size:12px">${esc(a.name||a.filename||'File')}</span>
+              <span class="xs muted">${fd(a.date||'')}</span>
+            </label>`).join('')
+          : '<p class="sm muted p2">No attachments yet.</p>'}
+        </div>
+      </div>
+
+      <div id="sh-status" class="mt3"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-secondary" onclick="closeM()">Cancel</button>
+      <button class="btn btn-primary" onclick="publishToPI()">📤 Publish & Get Link</button>
+    </div>
+  `);
+}
+
+async function publishToPI(){
+  const c=cfg();
+  const token=c.ghToken;
+  if(!token){toast('No GitHub token found','t-err');return;}
+
+  const selRecIds=new Set([...document.querySelectorAll('.sh-rec-cb:checked')].map(cb=>cb.value));
+  const selAttIds=new Set([...document.querySelectorAll('.sh-att-cb:checked')].map(cb=>cb.value));
+
+  const records=DB.list('records').filter(r=>selRecIds.has(r.id));
+  const projects=DB.list('projects');
+  const atts=DB.list('atts').filter(a=>selAttIds.has(a.id));
+
+  const status=document.getElementById('sh-status');
+  status.innerHTML='<p class="sm" style="color:var(--primary)">⏳ Publishing…</p>';
+
+  // Strip large base64 data from atts to keep Gist small; keep metadata + small files only
+  const sharedFiles=atts.map(a=>({
+    id:a.id, name:a.name||a.filename||'File', date:a.date||'',
+    type:a.type||'', size:a.size||0,
+    // include data only if < 500KB
+    data:(a.data&&a.data.length<700000)?a.data:null
+  }));
+
+  const payload={
+    researcher:c.name||'',
+    lab:c.lab||'',
+    pi:c.pi||'',
+    email:c.email||'',
+    piEmail:c.piEmail||'',
+    publishedAt:new Date().toISOString(),
+    projects,
+    records:records.map(r=>({...r})),
+    sharedFiles
+  };
+
+  const gistBody={
+    description:'LabDaily PI View — '+c.name,
+    public:false,
+    files:{'labdaily-pi.json':{content:JSON.stringify(payload,null,2)}}
+  };
+
+  try{
+    let res, data;
+    if(c.gistId){
+      // Update existing gist
+      res=await fetch(`https://api.github.com/gists/${c.gistId}`,{
+        method:'PATCH',
+        headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+        body:JSON.stringify(gistBody)
+      });
+    } else {
+      // Create new gist
+      res=await fetch('https://api.github.com/gists',{
+        method:'POST',
+        headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+        body:JSON.stringify(gistBody)
+      });
+    }
+    data=await res.json();
+    if(!res.ok)throw new Error(data.message||'GitHub API error');
+
+    const gistId=data.id;
+    const cfg0={...c,gistId};
+    DB.s('cfg',cfg0);
+
+    const link=`https://coffeyfun-jennifer.github.io/lab-daily/pi-view.html?gist=${gistId}`;
+    status.innerHTML=`
+      <div style="background:var(--primary-light);border-radius:var(--r);padding:12px">
+        <p class="sm mb2">✅ <strong>Published!</strong> Send this link to Dr. Liu:</p>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="sh-link" class="fi" value="${link}" readonly style="font-size:11px;flex:1">
+          <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText('${link}').then(()=>toast('Copied!','t-ok'))">Copy</button>
+        </div>
+        <p class="xs muted mt2">Dr. Liu can read records and leave PI comments. Link stays valid until you delete it.</p>
+      </div>`;
+    document.querySelector('.mf button:last-child').style.display='none';
+  }catch(err){
+    status.innerHTML=`<p class="sm" style="color:var(--danger)">❌ Error: ${err.message}</p>`;
+  }
+}
 </script>
 </body>
 </html>
