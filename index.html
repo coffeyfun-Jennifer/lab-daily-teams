@@ -2872,18 +2872,17 @@ function openShareModal(){
         </div>
       </div>
 
-      <div class="fg mt3">
-        <label class="fl">Files to share (Dr. Liu can download these)</label>
+      ${atts.length ? `<div class="fg mt3">
+        <label class="fl">Files to share — optional (Dr. Liu can download these)</label>
         <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);padding:6px">
-          ${atts.length ? atts.slice(0,50).map(a=>`
+          ${atts.slice(0,50).map(a=>`
             <label style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer">
               <input type="checkbox" class="sh-att-cb" value="${a.id}">
               <span style="font-size:12px">${esc(a.name||a.filename||'File')}</span>
               <span class="xs muted">${fd(a.date||'')}</span>
-            </label>`).join('')
-          : '<p class="sm muted p2">No attachments yet.</p>'}
+            </label>`).join('')}
         </div>
-      </div>
+      </div>` : ''}
 
       <div id="sh-status" class="mt3"></div>
     </div>
