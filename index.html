@@ -1,0 +1,2810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LabDaily — ELN</title>
+<style>
+:root{--bg:#f0f4f8;--surface:#fff;--surface2:#f8fafc;--border:#e2e8f0;--primary:#2563eb;--primary-dark:#1d4ed8;--primary-light:#eff6ff;--success:#16a34a;--warning:#d97706;--danger:#dc2626;--text:#0f172a;--text2:#475569;--text3:#94a3b8;--r:8px;--rl:12px;--sh:0 1px 3px rgba(0,0,0,.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
+
+/* ── Layout ── */
+.app{display:flex;min-height:100vh}
+.sidebar{width:230px;min-width:230px;background:#1e293b;color:#cbd5e1;display:flex;flex-direction:column;height:100vh;position:fixed;top:0;left:0;overflow-y:auto;z-index:100}
+.main{margin-left:230px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 1px 0 var(--border)}
+.content{padding:22px 24px;flex:1}
+
+/* ── Sidebar ── */
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid #334155}
+.sidebar-logo h1{font-size:17px;font-weight:800;color:#f1f5f9;letter-spacing:-.3px}
+.sidebar-logo p{font-size:11px;color:#64748b;margin-top:2px}
+.nav-group{padding:12px 0 4px}
+.nav-group-label{padding:0 14px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#475569}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 14px;margin:1px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;font-size:13px;font-weight:500;transition:all .12s;user-select:none}
+.nav-item:hover{background:#334155;color:#e2e8f0}
+.nav-item.active{background:#2563eb;color:#fff}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.nav-sub{padding:1px 0 1px 20px}
+.nav-sub-item{display:flex;align-items:center;gap:8px;padding:5px 12px;margin:1px 6px;border-radius:5px;cursor:pointer;color:#64748b;font-size:12.5px;transition:all .12s}
+.nav-sub-item:hover{background:#1e3a5f;color:#93c5fd}
+.nav-sub-item.active{color:#60a5fa;font-weight:600}
+.nav-sub-item::before{content:'';width:4px;height:4px;border-radius:50%;background:currentColor;flex-shrink:0}
+.sidebar-footer{padding:12px;border-top:1px solid #334155;margin-top:auto}
+.user-card{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;background:#0f172a}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.user-name{font-size:12px;font-weight:600;color:#e2e8f0}
+.user-role{font-size:10px;color:#64748b}
+
+/* ── Topbar ── */
+.topbar-title{font-size:15px;font-weight:700;color:var(--text)}
+.topbar-actions{display:flex;align-items:center;gap:8px}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;line-height:1}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-secondary{background:var(--surface);color:var(--text2);border-color:var(--border)}
+.btn-secondary:hover{background:var(--surface2)}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn svg{width:13px;height:13px}
+.icon-btn{padding:6px;border-radius:var(--r);background:var(--surface2);border:1px solid var(--border);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:var(--text2)}
+.icon-btn:hover{background:var(--border)}
+.icon-btn svg{width:14px;height:14px}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:18px 20px;box-shadow:var(--sh)}
+.card-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px}
+.card-sub{font-size:12px;color:var(--text3)}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+
+/* ── Grid ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+
+/* ── Stats ── */
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px}
+.stat-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.stat-val{font-size:26px;font-weight:800;color:var(--text);margin:3px 0 1px}
+.stat-sub{font-size:12px;color:var(--text2)}
+
+/* ── Forms ── */
+.fg{margin-bottom:14px}
+.fl{display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.fi,.fs,.ft{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:var(--r);font-size:13.5px;color:var(--text);background:var(--surface);font-family:inherit}
+.fi:focus,.fs:focus,.ft:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.ft{resize:vertical;min-height:80px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* ── Tags & Badges ── */
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.tag-blue{background:#dbeafe;color:#1e40af}
+.tag-green{background:#dcfce7;color:#15803d}
+.tag-gray{background:var(--surface2);color:var(--text2)}
+.tag-purple{background:#ede9fe;color:#6d28d9}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.b-blue{background:#dbeafe;color:#1e40af}
+.b-green{background:#dcfce7;color:#15803d}
+.b-orange{background:#ffedd5;color:#c2410c}
+.b-gray{background:var(--surface2);color:var(--text2)}
+.b-purple{background:#ede9fe;color:#7c3aed}
+.b-red{background:#fee2e2;color:#b91c1c}
+
+/* ── Table ── */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{text-align:left;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:2px solid var(--border)}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2)}
+.tbl tr:hover td{background:var(--surface2)}
+.tbl tr:last-child td{border-bottom:none}
+
+/* ── Modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--surface);border-radius:var(--rl);width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-lg{max-width:860px}
+.mh{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:1}
+.mh h2{font-size:16px;font-weight:700}
+.mb{padding:22px}
+.mf{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:8px}
+
+/* ── File items ── */
+.fi-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;background:var(--surface)}
+.ficon{width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.fi-info{flex:1;min-width:0}
+.fi-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fi-meta{font-size:11px;color:var(--text3)}
+
+/* ── Dropzone ── */
+.dz{border:2px dashed var(--border);border-radius:var(--rl);padding:28px;text-align:center;cursor:pointer;transition:all .15s}
+.dz:hover,.dz.over{border-color:var(--primary);background:var(--primary-light)}
+.dz p{color:var(--text3);font-size:13px}
+
+/* ── Tabs ── */
+.tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:18px;gap:0}
+.tab{padding:9px 15px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .12s}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--primary);border-bottom-color:var(--primary)}
+
+/* ── Comments ── */
+.cmt{display:flex;gap:9px;margin-bottom:10px}
+.cmt-body{flex:1;background:var(--surface2);border-radius:var(--r);padding:9px 12px}
+.cmt-meta{font-size:11px;color:var(--text3);margin-bottom:3px}
+
+/* ── AI panel ── */
+.ai-card{background:linear-gradient(135deg,#1e293b,#0f172a);color:#e2e8f0;border-radius:var(--rl);padding:20px;margin-bottom:12px}
+.ai-card h3{color:#60a5fa;font-size:14px;margin-bottom:8px}
+.ai-result{background:#0f172a;border:1px solid #1e3a5f;border-radius:var(--r);padding:14px;margin-top:12px;font-size:13px;line-height:1.7;color:#cbd5e1;white-space:pre-wrap;max-height:320px;overflow-y:auto}
+.ai-btn{background:#2563eb;color:#fff;border:none;border-radius:var(--r);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.ai-btn:hover{background:#1d4ed8}
+.ai-btn svg{width:14px;height:14px}
+.pulse{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Calendar ── */
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-h{font-size:10px;font-weight:700;text-align:center;color:var(--text3);padding:3px;text-transform:uppercase}
+.cal-d{padding:5px;border-radius:6px;text-align:center;cursor:pointer;font-size:12px;min-height:44px}
+.cal-d:hover{background:var(--surface2)}
+.cal-d.today{background:var(--primary);color:#fff}
+.cal-d.has{background:var(--primary-light);color:var(--primary);font-weight:700}
+.cal-d.dim{color:var(--text3)}
+
+/* ── Misc utils ── */
+.flex{display:flex}.col{flex-direction:column}.ic{align-items:center}.jb{justify-content:space-between}.g2u{gap:8px}.g3u{gap:12px}.g4u{gap:16px}
+.mt1{margin-top:4px}.mt2{margin-top:8px}.mt3{margin-top:12px}.mt4{margin-top:16px}
+.mb1{margin-bottom:4px}.mb2{margin-bottom:8px}.mb3{margin-bottom:12px}.mb4{margin-bottom:16px}
+.sm{font-size:12px}.xs{font-size:11px}.muted{color:var(--text3)}.bold{font-weight:700}.semi{font-weight:600}
+.trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w100{width:100%}
+.sec-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sec-title::before{content:'';display:block;width:3px;height:14px;background:var(--primary);border-radius:2px}
+hr{border:none;border-top:1px solid var(--border);margin:14px 0}
+
+/* ── Toast ── */
+.toasts{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:7px}
+.toast{background:#1e293b;color:#f1f5f9;padding:10px 16px;border-radius:var(--r);font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.2);animation:tin .2s ease}
+.t-ok{background:#15803d}.t-err{background:#dc2626}
+@keyframes tin{from{transform:translateX(80px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ── Section accent ── */
+.accent-bar{width:4px;border-radius:2px;flex-shrink:0}
+
+/* ── ELN editor ── */
+.eln-tb{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border:1px solid transparent;border-radius:5px;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);transition:all .1s}
+.eln-tb:hover{background:var(--surface2);border-color:var(--border);color:var(--text)}
+#td-editor h1{font-size:22px;font-weight:800;color:var(--text);margin:16px 0 8px;border-bottom:2px solid var(--primary);padding-bottom:6px}
+#td-editor h2{font-size:17px;font-weight:700;color:var(--text);margin:14px 0 5px;border-bottom:1px solid var(--border);padding-bottom:3px}
+#td-editor h3{font-size:14px;font-weight:700;color:var(--text2);margin:12px 0 4px}
+#td-editor p{margin:3px 0;color:var(--text2);line-height:1.8}
+#td-editor ul,#td-editor ol{padding-left:22px;margin:6px 0;color:var(--text2)}
+#td-editor li{margin:3px 0}
+#td-editor table{border-collapse:collapse;width:100%;margin:14px 0}
+#td-editor td,#td-editor th{border:1px solid var(--border);padding:8px 11px;text-align:left;font-size:13px;min-width:80px}
+#td-editor th{background:var(--surface2);font-weight:700}
+#td-editor img{max-width:100%;border-radius:8px;margin:10px 0;display:block;box-shadow:var(--shadow)}
+#td-editor a{color:var(--primary);text-decoration:underline}
+#td-editor hr{border:none;border-top:2px solid var(--border);margin:18px 0}
+#td-editor pre{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:monospace;font-size:12px;overflow-x:auto;margin:8px 0}
+#td-editor blockquote{border-left:3px solid var(--primary);padding-left:14px;color:var(--text3);margin:8px 0;font-style:italic}
+#eln-editor h1{font-size:22px;font-weight:800;color:var(--text);margin:16px 0 8px}
+#eln-editor h2{font-size:18px;font-weight:700;color:var(--text);margin:14px 0 6px;border-bottom:1px solid var(--border);padding-bottom:4px}
+#eln-editor h3{font-size:15px;font-weight:700;color:var(--text2);margin:12px 0 4px}
+#eln-editor p{margin:4px 0;color:var(--text2)}
+#eln-editor table{border-collapse:collapse;width:100%;margin:12px 0}
+#eln-editor td,#eln-editor th{border:1px solid var(--border);padding:7px 10px;text-align:left;font-size:13px}
+#eln-editor th{background:var(--surface2);font-weight:700}
+#eln-editor img{max-width:100%;border-radius:6px;margin:8px 0;cursor:pointer}
+#eln-editor pre{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:monospace;font-size:12px;overflow-x:auto;margin:8px 0}
+#eln-editor ul,#eln-editor ol{padding-left:24px;margin:6px 0;color:var(--text2)}
+#eln-editor li{margin:2px 0}
+#eln-editor a{color:var(--primary);text-decoration:underline}
+#eln-editor hr{border:none;border-top:2px solid var(--border);margin:16px 0}
+#eln-editor blockquote{border-left:3px solid var(--primary);padding-left:14px;color:var(--text3);margin:8px 0;font-style:italic}
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+<!-- ════ SIDEBAR ════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <h1>🧬 LabDaily</h1>
+    <p>Electronic Lab Notebook</p>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Workspace</div>
+    <div class="nav-item" id="nav-today" onclick="go('today')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Today Summary
+    </div>
+    <div class="nav-item" id="nav-todaydetails" onclick="go('todaydetails')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Today Details
+    </div>
+    <div class="nav-item" id="nav-projects" onclick="go('projects')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7a2 2 0 0 1 2-2h4l2 3h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/></svg>
+      Projects
+    </div>
+    <!-- project sub-items injected here -->
+    <div id="proj-subnav" class="nav-sub"></div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Data</div>
+    <div class="nav-item" id="nav-records" onclick="go('records')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+      Daily Records
+    </div>
+    <div class="nav-item" id="nav-archive" onclick="go('archive')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+      All Data
+    </div>
+    <!-- file type sub-items -->
+    <div class="nav-sub">
+      <div class="nav-sub-item" onclick="go('archive','images')">Images</div>
+      <div class="nav-sub-item" onclick="go('archive','excel')">Excel / CSV</div>
+      <div class="nav-sub-item" onclick="go('archive','ppt')">PowerPoint</div>
+      <div class="nav-sub-item" onclick="go('archive','prism')">Prism / RAW</div>
+      <div class="nav-sub-item" onclick="go('archive','pdf')">PDF / Word</div>
+      <div class="nav-sub-item" onclick="go('archive','video')">Videos</div>
+    </div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">Review</div>
+    <div class="nav-item" id="nav-pi" onclick="go('pi')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      PI View
+    </div>
+    <div class="nav-sub">
+      <div class="nav-sub-item" onclick="go('pi','today')">Today Summary</div>
+      <div class="nav-sub-item" onclick="go('pi','weekly')">Weekly Summary</div>
+      <div class="nav-sub-item" onclick="go('pi','monthly')">Monthly Summary</div>
+      <div class="nav-sub-item" onclick="go('pi','comments')">Comments</div>
+    </div>
+    <div class="nav-item" id="nav-templates" onclick="go('templates')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><path d="M13 17h8M17 13v8"/></svg>
+      Templates
+    </div>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-group-label">AI Assistant</div>
+    <div class="nav-item" id="nav-ai" onclick="go('ai')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 0 2h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1 0-2h1a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 10 4a2 2 0 0 1 2-2z"/></svg>
+      AI Assistant
+    </div>
+    <div class="nav-sub">
+      <div class="nav-sub-item" onclick="go('ai','summarize')">Auto Summarize</div>
+      <div class="nav-sub-item" onclick="go('ai','legend')">Figure Legends</div>
+      <div class="nav-sub-item" onclick="go('ai','methods')">Methods Section</div>
+      <div class="nav-sub-item" onclick="go('ai','manuscript')">Manuscript Draft</div>
+    </div>
+    <div class="nav-item" id="nav-search" onclick="go('search')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Search
+    </div>
+    <div class="nav-item" id="nav-settings" onclick="go('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+      Settings
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="avatar" id="uavatar">R</div>
+      <div>
+        <div class="user-name" id="uname">Researcher</div>
+        <div class="user-role" id="urole">Lab Member</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ════ MAIN ════ -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="tbTitle">Today's Record</div>
+    <div class="topbar-actions" id="tbAct"></div>
+  </div>
+  <div class="content" id="pg"></div>
+</div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<div id="mc"></div><!-- modal container -->
+
+<script>
+// ══════════════════════════════
+//  DB (localStorage)
+// ══════════════════════════════
+const DB={
+  g(k){try{return JSON.parse(localStorage.getItem('ld_'+k)||'null')}catch{return null}},
+  s(k,v){localStorage.setItem('ld_'+k,JSON.stringify(v))},
+  list(k){return this.g(k)||[]},
+  push(k,item){const l=this.list(k);l.push(item);this.s(k,l);return item},
+  upd(k,id,patch){const l=this.list(k);const i=l.findIndex(x=>x.id===id);if(i>=0){l[i]={...l[i],...patch};this.s(k,l);return l[i]}return null},
+  del(k,id){this.s(k,this.list(k).filter(x=>x.id!==id))},
+  find(k,id){return this.list(k).find(x=>x.id===id)||null}
+};
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function today(){return new Date().toISOString().split('T')[0]}
+function fd(d){if(!d)return'';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+function ft(ts){if(!ts)return'';return new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+function fsz(b){if(!b)return'0B';const k=1024,s=['B','KB','MB','GB'];const i=Math.floor(Math.log(b)/Math.log(k));return(b/Math.pow(k,i)).toFixed(1)+s[i]}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function cfg(){return DB.g('cfg')||{name:'Researcher',role:'PhD Student',lab:'Research Lab',pi:'PI Name',email:'',inst:''}}
+
+const PROJ_COLORS=['#2563eb','#16a34a','#9333ea','#ea580c','#0891b2','#be185d','#65a30d','#7c3aed'];
+const EXT_GROUPS={
+  images:['png','jpg','jpeg','gif','tif','tiff','bmp','svg','webp'],
+  excel:['xls','xlsx','csv','tsv'],
+  ppt:['ppt','pptx'],
+  prism:['pzfx','prism','raw','dat'],
+  pdf:['pdf','doc','docx','txt','rtf'],
+  video:['mp4','mov','avi','mkv','wmv','m4v']
+};
+function extGroup(name){const e=(name||'').split('.').pop().toLowerCase();for(const[g,exts]of Object.entries(EXT_GROUPS)){if(exts.includes(e))return g}return'other'}
+function ficon(name){
+  const e=(name||'').split('.').pop().toLowerCase();
+  const m={pdf:'#ef4444',doc:'#2563eb',docx:'#2563eb',xls:'#16a34a',xlsx:'#16a34a',csv:'#16a34a',ppt:'#ea580c',pptx:'#ea580c',png:'#7c3aed',jpg:'#7c3aed',jpeg:'#7c3aed',gif:'#7c3aed',tif:'#7c3aed',mp4:'#0891b2',mov:'#0891b2',pzfx:'#1d4ed8',zip:'#92400e'};
+  const c=m[e]||'#64748b';
+  return`<div class="ficon" style="background:${c}18;color:${c}">${e.slice(0,3).toUpperCase()}</div>`;
+}
+
+// ══════════════════════════════
+//  ROUTER
+// ══════════════════════════════
+let CUR='today', CUR_SUB='';
+function go(page,sub=''){
+  CUR=page;CUR_SUB=sub;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const el=document.getElementById('nav-'+page);
+  if(el)el.classList.add('active');
+  // sub-item highlight
+  document.querySelectorAll('.nav-sub-item').forEach(n=>n.classList.remove('active'));
+  RENDER[page]?.(sub);
+}
+
+// ══════════════════════════════
+//  PAGE: TODAY
+// ══════════════════════════════
+function renderToday(){
+  const cfg0=cfg();
+  const td=today();
+  const rec=DB.list('records').find(r=>r.date===td);
+  const projects=DB.list('projects');
+
+  setTB('Today — '+fd(td),`
+    <button class="btn btn-secondary btn-sm" onclick="exportPrint()">⬇ Export PDF</button>
+    <button class="btn btn-primary btn-sm" onclick="openRecModal('${td}')">${rec?'✎ Edit Record':'+ New Record'}</button>
+  `);
+
+  if(!rec){
+    pg(`<div style="text-align:center;padding:70px 20px">
+      <div style="font-size:56px;margin-bottom:16px">🧪</div>
+      <h2 style="font-size:19px;font-weight:700;margin-bottom:6px">No record for today</h2>
+      <p class="muted mb4">${fd(td)} — Start documenting your experiments</p>
+      <button class="btn btn-primary" onclick="openRecModal('${td}')">+ Create Today's Record</button>
+    </div>`);
+    return;
+  }
+
+  const exps=rec.experiments||[];
+  const atts=DB.list('atts').filter(a=>a.date===td);
+  const cmts=DB.list('cmts').filter(c=>c.recId===rec.id);
+
+  const projCards=projects.map(p=>{
+    const pe=exps.filter(e=>e.projId===p.id);
+    if(!pe.length&&projects.length>3)return'';
+    return`<div class="card mb3" style="border-left:3px solid ${p.color}">
+      <div class="ch"><div><div class="card-title">${esc(p.name)}</div><div class="card-sub">${pe.length} experiment${pe.length!==1?'s':''} today</div></div>
+      <button class="btn btn-secondary btn-sm" onclick="openExpModal('${rec.id}','','${p.id}')">+ Add</button></div>
+      ${pe.map(e=>`<div class="fi-row mb2">
+        <div class="fi-info"><div class="fi-name">${esc(e.title||'Untitled')}</div>
+        <div class="fi-meta">${esc((e.results||'').slice(0,80))}</div></div>
+        <div class="flex ic g2u">
+          <a href="eln.html?mode=exp&rec=${rec.id}&exp=${e.id}" style="font-size:12px;color:var(--primary);white-space:nowrap;text-decoration:none;font-weight:600">More Details →</a>
+          <button class="icon-btn" onclick="openExpModal('${rec.id}','${e.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        </div>
+      </div>`).join('')}
+      ${!pe.length?'<p class="sm muted">No experiments for this project today.</p>':''}
+    </div>`;
+  }).join('');
+
+  pg(`
+    <div class="g2 mb4">
+      <div class="card">
+        <div class="ch"><div class="card-title">📋 Overall Summary</div>
+          <div class="flex ic g2u">
+            <a href="eln.html?mode=day&rec=${rec.id}" style="font-size:12px;color:var(--primary);font-weight:600;text-decoration:none">More Details →</a>
+            <button class="btn btn-secondary btn-sm" onclick="openRecModal('${td}')">Edit</button>
+          </div></div>
+        <p style="white-space:pre-wrap;color:var(--text2)">${esc(rec.summary)||'<span class="muted">No summary yet.</span>'}</p>
+      </div>
+      <div class="g2" style="grid-template-columns:1fr;gap:10px">
+        <div class="card" style="padding:13px 16px"><div class="card-title mb2">⚠️ Problems</div>
+          <p class="sm" style="color:var(--text2);white-space:pre-wrap">${esc(rec.problems)||'<span class="muted">None noted.</span>'}</p></div>
+        <div class="card" style="padding:13px 16px"><div class="card-title mb2">➡️ Next Steps</div>
+          <p class="sm" style="color:var(--text2);white-space:pre-wrap">${esc(rec.nextSteps)||'<span class="muted">None planned.</span>'}</p></div>
+      </div>
+    </div>
+
+    <div class="sec-title">Experiments by Project</div>
+    ${projCards||'<p class="muted sm mb4">No projects yet. <a href="#" onclick="go(\'projects\')" style="color:var(--primary)">Create a project</a> first.</p>'}
+    <div class="mb3">
+      <button class="btn btn-secondary btn-sm" onclick="openExpModal('${rec.id}')">+ Add Experiment (Any Project)</button>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <div class="ch"><div class="card-title">📎 Files Today (${atts.length})</div>
+          <button class="btn btn-secondary btn-sm" onclick="openUpload('${td}','${rec.id}')">+ Upload</button></div>
+        ${atts.map(a=>fiRow(a)).join('')||'<p class="sm muted">No files uploaded today.</p>'}
+      </div>
+      <div class="card">
+        <div class="ch"><div class="card-title">💬 Comments (${cmts.length})</div>
+          <button class="btn btn-secondary btn-sm" onclick="openCmtModal('${rec.id}')">+ Comment</button></div>
+        ${cmts.map(c=>`<div class="cmt">
+          <div class="avatar" style="width:26px;height:26px;font-size:10px;background:${c.role==='pi'?'#7c3aed':'var(--primary)'}">${c.role==='pi'?'PI':'R'}</div>
+          <div class="cmt-body"><div class="cmt-meta">${c.role==='pi'?'PI':'Researcher'} · ${ft(c.at)}</div><div class="sm">${esc(c.text)}</div></div>
+        </div>`).join('')||'<p class="sm muted">No comments yet.</p>'}
+        <div class="mt2 flex ic g2u">
+          ${rec.piReviewed?'<span class="badge b-green">✓ PI Reviewed</span>':'<button class="btn btn-success btn-sm" onclick="markRev(\''+rec.id+'\')">✓ Mark Reviewed</button>'}
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+// ══════════════════════════════
+//  PAGE: PROJECTS
+// ══════════════════════════════
+function renderProjects(sub){
+  const projects=DB.list('projects');
+  setTB('Projects',`<button class="btn btn-primary btn-sm" onclick="openProjModal()">+ New Project</button>`);
+  refreshProjSubnav();
+
+  // If sub is a project id, show project detail
+  if(sub&&sub.length>4){
+    const p=DB.find('projects',sub);
+    if(p){renderProjectDetail(p);return}
+  }
+
+  if(!projects.length){
+    pg(`<div style="text-align:center;padding:70px 20px">
+      <div style="font-size:56px;margin-bottom:16px">📁</div>
+      <h2 style="font-size:19px;font-weight:700;margin-bottom:6px">No projects yet</h2>
+      <p class="muted mb4">Create your first research project</p>
+      <button class="btn btn-primary" onclick="openProjModal()">+ New Project</button>
+    </div>`);
+    return;
+  }
+
+  pg(`<div class="g2">${projects.map(p=>{
+    const exps=DB.list('records').flatMap(r=>(r.experiments||[]).filter(e=>e.projId===p.id));
+    const atts=DB.list('atts').filter(a=>a.projId===p.id);
+    return`<div class="card" style="border-top:3px solid ${p.color};cursor:pointer" onclick="go('projects','${p.id}')">
+      <div class="ch">
+        <div><div class="card-title">${esc(p.name)}</div><div class="card-sub">${esc(p.category||'')}</div></div>
+        <span class="badge ${p.status==='active'?'b-green':p.status==='paused'?'b-orange':'b-gray'}">${p.status||'active'}</span>
+      </div>
+      <p class="sm" style="color:var(--text2);margin-bottom:12px">${esc((p.description||'').slice(0,100))}</p>
+      <div class="flex ic g4u sm muted">
+        <span>🧪 ${exps.length} exp</span><span>📎 ${atts.length} files</span>
+      </div>
+      ${(p.tags||[]).length?`<div class="flex mt2 g2u" style="flex-wrap:wrap">${p.tags.map(t=>`<span class="tag tag-blue">${t}</span>`).join('')}</div>`:''}
+      <div class="flex mt3 g2u">
+        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();openProjModal('${p.id}')">Edit</button>
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();go('projects','${p.id}')">Open →</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`);
+}
+
+function renderProjectDetail(p){
+  const records=DB.list('records');
+  const exps=records.flatMap(r=>(r.experiments||[]).filter(e=>e.projId===p.id).map(e=>({...e,date:r.date,recId:r.id})));
+  const linkedRecs=records.filter(r=>(r.projIds||[]).includes(p.id)).sort((a,b)=>b.date.localeCompare(a.date));
+  const atts=DB.list('atts').filter(a=>a.projId===p.id);
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  setTB(p.name,`
+    <button class="btn btn-secondary btn-sm" onclick="go('projects')">← Back</button>
+    <button class="btn btn-secondary btn-sm" onclick="openProjModal('${p.id}')">Edit</button>
+  `);
+  pg(`
+    <div class="g3 mb4">
+      <div class="stat"><div class="stat-label">Daily Records</div><div class="stat-val">${linkedRecs.length}</div></div>
+      <div class="stat"><div class="stat-label">Experiments</div><div class="stat-val">${exps.length}</div></div>
+      <div class="stat"><div class="stat-label">Files</div><div class="stat-val">${atts.length}</div></div>
+      <div class="stat"><div class="stat-label">Status</div><div class="stat-val" style="font-size:15px">${p.status||'active'}</div></div>
+    </div>
+    <div class="card mb4">
+      <div class="card-title mb2">About</div>
+      <p style="color:var(--text2)">${esc(p.description||'No description.')}</p>
+      ${(p.tags||[]).length?`<div class="flex mt3 g2u">${p.tags.map(t=>`<span class="tag tag-blue">${t}</span>`).join('')}</div>`:''}
+    </div>
+    <div class="tabs">
+      <div class="tab on" onclick="switchTab(this,'ptab-rec','ptab-exp','ptab-files')">Daily Records (${linkedRecs.length})</div>
+      <div class="tab" onclick="switchTab(this,'ptab-exp','ptab-rec','ptab-files')">Experiments (${exps.length})</div>
+      <div class="tab" onclick="switchTab(this,'ptab-files','ptab-rec','ptab-exp')">Files (${atts.length})</div>
+    </div>
+    <div id="ptab-rec">
+      ${linkedRecs.length?linkedRecs.map(r=>{
+        const d=new Date(r.date+'T12:00:00');
+        return`<div class="fi-row mb2" style="cursor:pointer" onclick="openRecModal('${r.date}')">
+          <div style="text-align:center;min-width:38px">
+            <div style="font-size:15px;font-weight:800;color:${p.color}">${d.getDate()}</div>
+            <div class="xs muted">${MO[d.getMonth()]}</div>
+          </div>
+          <div class="fi-info">
+            <div class="fi-name">${esc((r.summary||'').slice(0,100))}</div>
+            <div class="fi-meta">${r.nextSteps?'Next: '+esc(r.nextSteps.slice(0,80)):''}</div>
+          </div>
+          <button class="icon-btn" title="Open Today Details" onclick="event.stopPropagation();go('todaydetails','${r.date}')">📝</button>
+        </div>`;
+      }).join(''):'<p class="sm muted">No daily records linked to this project yet.<br>Link records from Today Summary or Today Details.</p>'}
+    </div>
+    <div id="ptab-exp" class="hidden">
+      ${exps.length?exps.slice().reverse().map(e=>`
+        <div class="fi-row mb2">
+          <div style="text-align:center;min-width:38px">
+            <div style="font-size:15px;font-weight:800;color:var(--primary)">${new Date(e.date+'T12:00:00').getDate()}</div>
+            <div class="xs muted">${MO[new Date(e.date+'T12:00:00').getMonth()]}</div>
+          </div>
+          <div class="fi-info">
+            <div class="fi-name">${esc(e.title||'Untitled')}</div>
+            <div class="fi-meta">${esc((e.results||'').slice(0,90))}</div>
+          </div>
+          <button class="icon-btn" onclick="openExpModal('${e.recId}','${e.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        </div>`).join(''):'<p class="sm muted">No experiments yet.</p>'}
+    </div>
+    <div id="ptab-files" class="hidden">
+      ${atts.length?atts.slice().reverse().map(a=>fiRow(a)).join(''):'<p class="sm muted">No files yet.</p>'}
+    </div>
+  `);
+}
+
+// ══════════════════════════════
+//  PAGE: RECORDS (calendar)
+// ══════════════════════════════
+function renderRecords(){
+  setTB('Daily Records',`<button class="btn btn-primary btn-sm" onclick="openRecModal()">+ New Record</button>`);
+  const records=DB.list('records');
+  const recDates=new Set(records.map(r=>r.date));
+  const now=new Date();const yr=now.getFullYear(),mo=now.getMonth();
+  const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const first=new Date(yr,mo,1).getDay();
+  const dim=new Date(yr,mo+1,0).getDate();
+  let cal='';
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>cal+=`<div class="cal-h">${d}</div>`);
+  for(let i=0;i<first;i++)cal+=`<div class="cal-d dim"></div>`;
+  for(let d=1;d<=dim;d++){
+    const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isTd=ds===today(),hasR=recDates.has(ds);
+    cal+=`<div class="cal-d ${isTd?'today':hasR?'has':''}" onclick="openDay('${ds}')">
+      <div style="font-weight:${hasR||isTd?700:400}">${d}</div>
+      ${hasR&&!isTd?'<div style="font-size:8px;margin-top:2px">●</div>':''}
+    </div>`;
+  }
+
+  pg(`<div class="g2">
+    <div><div class="card mb4">
+      <div class="ch"><div class="card-title">${MN[mo]} ${yr}</div></div>
+      <div class="cal">${cal}</div>
+      <div class="flex mt3 g4u xs muted ic">
+        <span style="color:var(--primary)">■ Has record</span><span>Click day to open/create</span>
+      </div>
+    </div></div>
+    <div><div class="card">
+      <div class="card-title mb3">All Records (${records.length})</div>
+      ${records.slice().reverse().map(r=>`
+        <div class="fi-row" style="cursor:pointer" onclick="openDay('${r.date}')">
+          <div style="text-align:center;min-width:38px">
+            <div style="font-size:15px;font-weight:800;color:var(--primary)">${new Date(r.date+'T12:00:00').getDate()}</div>
+            <div class="xs muted">${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][new Date(r.date+'T12:00:00').getMonth()]}</div>
+          </div>
+          <div class="fi-info">
+            <div class="fi-name">${esc((r.summary||'No summary').slice(0,60))}</div>
+            <div class="fi-meta">${(r.experiments||[]).length} experiments · ${r.piReviewed?'✅':'⏳'}</div>
+          </div>
+        </div>`).join('')||'<p class="sm muted">No records yet.</p>'}
+    </div></div>
+  </div>`);
+}
+
+function openDay(ds){
+  if(ds===today()){go('today');return}
+  const rec=DB.list('records').find(r=>r.date===ds);
+  if(!rec){openRecModal(ds)}else showRecDetail(rec);
+}
+
+function showRecDetail(rec){
+  const atts=DB.list('atts').filter(a=>a.date===rec.date);
+  const cmts=DB.list('cmts').filter(c=>c.recId===rec.id);
+  modal(`
+    <div class="mh"><h2>Record — ${fd(rec.date)}</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      ${rec.summary?`<div class="fg"><div class="fl">Summary</div><p style="white-space:pre-wrap;color:var(--text2)">${esc(rec.summary)}</p></div>`:''}
+      ${(rec.experiments||[]).length?`<div class="fl mt3">Experiments</div>${rec.experiments.map(e=>{
+        const pr=DB.find('projects',e.projId);
+        return`<div class="fi-row mb2"><div class="fi-info"><div class="fi-name">${esc(e.title)}</div><div class="fi-meta">${pr?pr.name:''} · ${esc((e.results||'').slice(0,80))}</div></div></div>`;
+      }).join('')}`:''}
+      ${rec.problems?`<div class="fg mt3"><div class="fl">Problems</div><p class="sm" style="color:var(--text2)">${esc(rec.problems)}</p></div>`:''}
+      ${rec.nextSteps?`<div class="fg"><div class="fl">Next Steps</div><p class="sm" style="color:var(--text2)">${esc(rec.nextSteps)}</p></div>`:''}
+      ${atts.length?`<div class="fl mt3">Files</div>${atts.map(a=>fiRow(a)).join('')}`:''}
+      ${cmts.length?`<div class="fl mt3">Comments</div>${cmts.map(c=>`<div class="cmt"><div class="avatar" style="width:26px;height:26px;font-size:10px">${c.role==='pi'?'PI':'R'}</div><div class="cmt-body"><div class="cmt-meta">${c.role==='pi'?'PI':'R'} · ${ft(c.at)}</div><div class="sm">${esc(c.text)}</div></div></div>`).join('')}`:''}
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeM()">Close</button>
+      <button class="btn btn-primary" onclick="closeM();openRecModal('${rec.date}')">Edit</button></div>
+  `,'modal-lg');
+}
+
+// ══════════════════════════════
+//  PAGE: ALL DATA ARCHIVE
+// ══════════════════════════════
+function renderArchive(sub){
+  const allAtts=DB.list('atts');
+  const projects=DB.list('projects');
+  setTB('All Data',`<button class="btn btn-secondary btn-sm" onclick="openUpload()">⬆ Upload</button>`);
+
+  const filterSub=sub||document.getElementById('af-sub')?.value||'';
+  const filterPrj=document.getElementById('af-prj')?.value||'';
+  const filterQ=document.getElementById('af-q')?.value?.toLowerCase()||'';
+
+  let filtered=allAtts;
+  if(filterSub)filtered=filtered.filter(a=>extGroup(a.name)===filterSub);
+  if(filterPrj)filtered=filtered.filter(a=>a.projId===filterPrj);
+  if(filterQ)filtered=filtered.filter(a=>(a.name||'').toLowerCase().includes(filterQ)||(a.description||'').toLowerCase().includes(filterQ)||(a.tags||[]).some(t=>t.toLowerCase().includes(filterQ)));
+
+  const tabs=[['','All'],['images','Images'],['excel','Excel/CSV'],['ppt','PPT'],['prism','Prism/RAW'],['pdf','PDF/Word'],['video','Video']];
+
+  pg(`
+    <div class="g4 mb4">
+      <div class="stat"><div class="stat-label">Total Files</div><div class="stat-val">${allAtts.length}</div></div>
+      <div class="stat"><div class="stat-label">Images</div><div class="stat-val">${allAtts.filter(a=>extGroup(a.name)==='images').length}</div></div>
+      <div class="stat"><div class="stat-label">Excel/CSV</div><div class="stat-val">${allAtts.filter(a=>extGroup(a.name)==='excel').length}</div></div>
+      <div class="stat"><div class="stat-label">PDFs</div><div class="stat-val">${allAtts.filter(a=>extGroup(a.name)==='pdf').length}</div></div>
+    </div>
+    <div class="tabs">${tabs.map(([v,l])=>`<div class="tab ${filterSub===v?'on':''}" onclick="go('archive','${v}')">${l}</div>`).join('')}</div>
+    <div class="card mb3">
+      <div class="flex ic g3u" style="flex-wrap:wrap">
+        <div style="position:relative;flex:1;min-width:180px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input class="fi" id="af-q" style="padding-left:32px" placeholder="Search files, tags, descriptions..." value="${esc(filterQ)}" oninput="renderArchive(document.getElementById('af-sub')?.value||'${filterSub}')">
+        </div>
+        <select class="fs" id="af-prj" onchange="renderArchive('${filterSub}')" style="width:160px">
+          <option value="">All Projects</option>
+          ${projects.map(p=>`<option value="${p.id}" ${filterPrj===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+        </select>
+        <select class="fs" id="af-sub" onchange="renderArchive(this.value)" style="width:130px">
+          ${tabs.map(([v,l])=>`<option value="${v}" ${filterSub===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><div class="card-title">Files (${filtered.length})</div></div>
+      ${filtered.length?`<table class="tbl">
+        <thead><tr><th>File</th><th>Project</th><th>Date</th><th>Tags</th><th>Size</th><th></th></tr></thead>
+        <tbody>${filtered.slice().reverse().map(a=>{
+          const pr=DB.find('projects',a.projId);
+          return`<tr>
+            <td><div class="flex ic g2u">${ficon(a.name)}<div><div class="semi" style="font-size:13px">${esc(a.name)}</div><div class="xs muted">${esc(a.description||'')}</div></div></div></td>
+            <td>${pr?`<span class="badge b-blue">${esc(pr.name)}</span>`:'-'}</td>
+            <td class="xs muted">${fd(a.date)}</td>
+            <td>${(a.tags||[]).map(t=>`<span class="tag tag-gray">${t}</span>`).join(' ')}</td>
+            <td class="xs muted">${fsz(a.size)}</td>
+            <td><div class="flex ic g2u">
+              ${a.fileId?`<button class="icon-btn" onclick="dlFile('${a.fileId}')" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>`:''}
+              <button class="icon-btn" onclick="delAtt('${a.id}')" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>
+            </div></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`:`<div style="text-align:center;padding:36px;color:var(--text3)">No files found.</div>`}
+    </div>
+  `);
+}
+
+// ══════════════════════════════
+//  PAGE: PI VIEW
+// ══════════════════════════════
+function renderPI(sub){
+  const cfg0=cfg();
+  const records=DB.list('records').slice().reverse();
+  const td=today();
+  sub=sub||'today';
+  setTB('PI View',`
+    <button class="btn btn-secondary btn-sm" onclick="copyLink()">🔗 Share Link</button>
+    <button class="btn btn-primary btn-sm" onclick="exportPrint()">⬇ PDF</button>
+  `);
+
+  const tabs=[['today','Today'],['weekly','This Week'],['monthly','This Month'],['comments','All Comments']];
+  const tabHtml=`<div class="tabs">${tabs.map(([v,l])=>`<div class="tab ${sub===v?'on':''}" onclick="go('pi','${v}')">${l}</div>`).join('')}</div>`;
+
+  if(sub==='comments'){
+    const allCmts=DB.list('cmts');
+    pg(tabHtml+`<div class="card">
+      <div class="card-title mb3">All Comments</div>
+      ${allCmts.length?allCmts.slice().reverse().map(c=>{
+        const rec=DB.find('records',c.recId);
+        return`<div class="cmt mb3">
+          <div class="avatar" style="width:28px;height:28px;font-size:10px;background:${c.role==='pi'?'#7c3aed':'var(--primary)'}">${c.role==='pi'?'PI':'R'}</div>
+          <div class="cmt-body">
+            <div class="cmt-meta">${c.role==='pi'?'PI':'Researcher'} · ${ft(c.at)} ${rec?'· Record: '+fd(rec.date):''}</div>
+            <div class="sm">${esc(c.text)}</div>
+          </div>
+        </div>`;}).join(''):'<p class="sm muted">No comments yet.</p>'}
+    </div>`);
+    return;
+  }
+
+  let filtRecs=records;
+  if(sub==='today')filtRecs=records.filter(r=>r.date===td);
+  else if(sub==='weekly'){const w=new Date();w.setDate(w.getDate()-7);filtRecs=records.filter(r=>new Date(r.date+'T12:00:00')>=w)}
+  else if(sub==='monthly'){const m=new Date();m.setDate(m.getDate()-30);filtRecs=records.filter(r=>new Date(r.date+'T12:00:00')>=m)}
+
+  const totalExps=filtRecs.flatMap(r=>r.experiments||[]).length;
+  const projects=DB.list('projects');
+
+  pg(tabHtml+`
+    <div class="g3 mb4">
+      <div class="stat"><div class="stat-label">Records</div><div class="stat-val">${filtRecs.length}</div></div>
+      <div class="stat"><div class="stat-label">Experiments</div><div class="stat-val">${totalExps}</div></div>
+      <div class="stat"><div class="stat-label">Researcher</div><div class="stat-val" style="font-size:14px">${esc(cfg0.name)}</div><div class="stat-sub">${esc(cfg0.lab)}</div></div>
+    </div>
+    ${filtRecs.length?filtRecs.map(r=>{
+      const exps=r.experiments||[];
+      const atts=DB.list('atts').filter(a=>a.date===r.date);
+      const cmts=DB.list('cmts').filter(c=>c.recId===r.id);
+      return`<div class="card mb3" style="border-left:3px solid var(--primary)">
+        <div class="ch">
+          <div><div class="card-title">${fd(r.date)}</div></div>
+          <div class="flex ic g2u">
+            <span class="badge ${r.piReviewed?'b-green':'b-orange'}">${r.piReviewed?'Reviewed':'Pending'}</span>
+            ${!r.piReviewed?`<button class="btn btn-success btn-sm" onclick="markRev('${r.id}')">✓ Review</button>`:''}
+            <button class="btn btn-secondary btn-sm" onclick="openCmtModal('${r.id}')">💬</button>
+          </div>
+        </div>
+        <p class="sm mb3" style="white-space:pre-wrap;color:var(--text2)">${esc(r.summary||'')}</p>
+        ${exps.length?`<div class="mb2 sm muted semi">Experiments (${exps.length})</div>
+        ${exps.map(e=>{const pr=DB.find('projects',e.projId);return`<div class="fi-row mb2">
+          <div class="fi-info"><div class="fi-name">${esc(e.title||'Untitled')}${pr?` <span class="badge b-blue">${esc(pr.name)}</span>`:''}</div>
+          ${e.results?`<div class="fi-meta">${esc(e.results.slice(0,100))}</div>`:''}
+        </div>`;}).join('')}`:''}
+        ${atts.length?`<div class="sm muted mt2">📎 ${atts.length} file${atts.length!==1?'s':''} attached</div>`:''}
+        ${cmts.length?`<div class="mt2">${cmts.map(c=>`<div class="cmt"><div class="avatar" style="width:22px;height:22px;font-size:9px;background:${c.role==='pi'?'#7c3aed':'var(--primary)'}">${c.role==='pi'?'PI':'R'}</div><div class="cmt-body"><div class="cmt-meta">${c.role==='pi'?'PI':'R'} · ${ft(c.at)}</div><div class="sm">${esc(c.text)}</div></div></div>`).join('')}</div>`:''}
+      </div>`;
+    }).join(''):`<div class="card" style="text-align:center;padding:36px"><p class="muted">No records for this period.</p></div>`}
+  `);
+}
+
+// ══════════════════════════════
+//  PAGE: TEMPLATES
+// ══════════════════════════════
+const TMPLS=[
+  {id:'t1',name:'Western Blot',cat:'Assay',icon:'🧫',fields:['Cell line / Sample','Primary antibody','Secondary antibody','Gel %','Transfer conditions','Blocking buffer','Exposure time']},
+  {id:'t2',name:'Immunofluorescence',cat:'Imaging',icon:'🔬',fields:['Cell line','Primary antibody','Secondary antibody','Fixation method','Permeabilization','Mounting medium','Microscope settings']},
+  {id:'t3',name:'PLA Assay',cat:'Assay',icon:'🧬',fields:['Cell line','Protein A antibody','Protein B antibody','PLA kit','Signal control','PLA dots / FOV']},
+  {id:'t4',name:'Cell Transfection',cat:'Cell Biology',icon:'💉',fields:['Cell line','Plasmid / siRNA','Transfection reagent','Cell confluency','Reagent volume','DNA amount','Incubation time']},
+  {id:'t5',name:'EV Purification',cat:'EV',icon:'🔵',fields:['Cell line','CM volume','Centrifugation steps','Ultracentrifuge conditions','Resuspension buffer','NTA results']},
+  {id:'t6',name:'BCA Assay',cat:'Assay',icon:'📊',fields:['Sample description','Standard range','Sample dilution','OD562 readings','Calculated concentrations']},
+  {id:'t7',name:'HiBiT / Luciferase',cat:'Assay',icon:'✨',fields:['Cell line','Plasmid','Treatment conditions','Luminescence readings','Normalization','Fold change']},
+  {id:'t8',name:'Cell Culture',cat:'Cell Biology',icon:'🧪',fields:['Cell line','Passage number','Flask size','Media','Split ratio','Cell count','Viability']},
+  {id:'t9',name:'Animal Experiment',cat:'In Vivo',icon:'🐭',fields:['Animal model','Group design','Treatment','Route','Dosing','Weight/measurements','Observations']},
+  {id:'t10',name:'Meeting / Discussion',cat:'Admin',icon:'💬',fields:['Attendees','Agenda','Key points','Decisions','Action items','Next meeting']},
+  {id:'t11',name:'Figure Preparation',cat:'Manuscript',icon:'📈',fields:['Figure #','Panel description','Source data','Software','Scale bars','Statistics']},
+  {id:'t12',name:'General Experiment',cat:'General',icon:'🔧',fields:['Objective','Background','Materials','Protocol','Conditions','Results','Interpretation']}
+];
+function renderTemplates(){
+  setTB('Experiment Templates','');
+  pg(`<div class="g3">${TMPLS.map(t=>`<div class="card">
+    <div style="font-size:28px;margin-bottom:8px">${t.icon}</div>
+    <div class="card-title">${t.name}</div>
+    <div class="xs muted mb3">${t.cat} · ${t.fields.length} fields</div>
+    <div class="flex" style="flex-wrap:wrap;gap:4px;margin-bottom:14px">
+      ${t.fields.map(f=>`<span class="tag tag-gray">${f}</span>`).join('')}
+    </div>
+    <button class="btn btn-primary btn-sm w100" onclick="useTmpl('${t.id}')">Use Template</button>
+  </div>`).join('')}</div>`);
+}
+function useTmpl(id){
+  const t=TMPLS.find(x=>x.id===id);if(!t)return;
+  const td0=today();
+  let rec=DB.list('records').find(r=>r.date===td0);
+  if(!rec){rec=DB.push('records',{id:uid(),date:td0,summary:'',experiments:[],problems:'',nextSteps:'',piReviewed:false,createdAt:Date.now()})}
+  openExpModal(rec.id,'','',t);
+}
+
+// ══════════════════════════════
+//  PAGE: AI ASSISTANT
+// ══════════════════════════════
+function renderAI(sub){
+  sub=sub||'summarize';
+  setTB('AI Assistant','');
+  const tabs=[['summarize','Auto Summarize'],['legend','Figure Legends'],['methods','Methods Section'],['manuscript','Manuscript Draft']];
+  const tabHtml=`<div class="tabs">${tabs.map(([v,l])=>`<div class="tab ${sub===v?'on':''}" onclick="go('ai','${v}')">${l}</div>`).join('')}</div>`;
+
+  const records=DB.list('records').slice().reverse();
+  const projects=DB.list('projects');
+  const recOpts=records.map(r=>`<option value="${r.id}">${fd(r.date)} — ${esc((r.summary||'').slice(0,40))}</option>`).join('');
+  const projOpts=projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+
+  const panels={
+    summarize:`<div class="ai-card">
+      <h3>🤖 Auto Summarize Daily Record</h3>
+      <p class="xs" style="color:#94a3b8;margin-bottom:12px">Select a record and generate a structured PI-ready summary.</p>
+      <div class="fg"><select class="fs" id="ai-rec-sel" style="background:#0f172a;border-color:#334155;color:#e2e8f0">${recOpts||'<option>No records yet</option>'}</select></div>
+      <button class="ai-btn" onclick="aiSummarize()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>Generate Summary</button>
+      <div id="ai-out"></div>
+    </div>`,
+    legend:`<div class="ai-card">
+      <h3>🖼 Generate Figure Legends</h3>
+      <p class="xs" style="color:#94a3b8;margin-bottom:12px">Pick an experiment to auto-generate a publication-style figure legend.</p>
+      <div class="fg"><select class="fs" id="ai-rec-sel2" style="background:#0f172a;border-color:#334155;color:#e2e8f0" onchange="populateExpSel(this.value)">${recOpts||'<option>No records yet</option>'}</select></div>
+      <div class="fg"><select class="fs" id="ai-exp-sel" style="background:#0f172a;border-color:#334155;color:#e2e8f0"><option>Select record first</option></select></div>
+      <button class="ai-btn" onclick="aiLegend()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>Generate Legend</button>
+      <div id="ai-out"></div>
+    </div>`,
+    methods:`<div class="ai-card">
+      <h3>📝 Generate Methods Section</h3>
+      <p class="xs" style="color:#94a3b8;margin-bottom:12px">Generate a manuscript-ready methods section from your experiment records.</p>
+      <div class="fg"><select class="fs" id="ai-proj-sel" style="background:#0f172a;border-color:#334155;color:#e2e8f0">${projOpts||'<option>No projects yet</option>'}</select></div>
+      <button class="ai-btn" onclick="aiMethods()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>Generate Methods</button>
+      <div id="ai-out"></div>
+    </div>`,
+    manuscript:`<div class="ai-card">
+      <h3>📄 Generate Manuscript Draft</h3>
+      <p class="xs" style="color:#94a3b8;margin-bottom:12px">Generate a Results paragraph draft from a project's experiments.</p>
+      <div class="fg"><select class="fs" id="ai-proj-sel2" style="background:#0f172a;border-color:#334155;color:#e2e8f0">${projOpts||'<option>No projects yet</option>'}</select></div>
+      <button class="ai-btn" onclick="aiManuscript()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>Generate Draft</button>
+      <div id="ai-out"></div>
+    </div>`
+  };
+
+  pg(tabHtml+`<div class="g2"><div>${panels[sub]}</div><div>
+    <div class="card"><div class="card-title mb3">💡 AI Tips</div>
+      <ul style="padding-left:16px;color:var(--text2);font-size:13px;line-height:2">
+        <li>Fill in Results and Interpretation fields for better output</li>
+        <li>Add protocol details to improve Methods generation</li>
+        <li>Tag experiments consistently for better organization</li>
+        <li>Use specific antibody/cell line names in fields</li>
+      </ul>
+    </div>
+  </div></div>`);
+
+  // init legend exp selector
+  if(sub==='legend'&&records.length){
+    const firstRec=records[0];
+    document.getElementById('ai-rec-sel2').value=firstRec.id;
+    populateExpSel(firstRec.id);
+  }
+}
+
+function populateExpSel(recId){
+  const rec=DB.find('records',recId);
+  const sel=document.getElementById('ai-exp-sel');
+  if(!sel)return;
+  const exps=(rec?.experiments)||[];
+  sel.innerHTML=exps.map(e=>`<option value="${e.id}">${esc(e.title||'Untitled')}</option>`).join('')||'<option>No experiments in this record</option>';
+}
+
+function aiOut(el,text){
+  const out=document.getElementById(el);
+  if(!out)return;
+  out.innerHTML=`<div class="ai-result">${esc(text)}</div>
+    <div class="flex mt2 g2u">
+      <button class="ai-btn" style="background:#334155" onclick="copyText(\`${text.replace(/`/g,"'")}\`)">📋 Copy</button>
+    </div>`;
+}
+
+function copyText(t){navigator.clipboard.writeText(t).then(()=>toast('Copied!','ok'))}
+
+function aiSummarize(){
+  const sel=document.getElementById('ai-rec-sel');if(!sel)return;
+  const rec=DB.find('records',sel.value);if(!rec){toast('Select a record','err');return}
+  const cfg0=cfg();
+  const exps=rec.experiments||[];
+  const projs=exps.map(e=>DB.find('projects',e.projId)?.name).filter(Boolean);
+  const uniqueProjs=[...new Set(projs)];
+
+  let out=`DAILY LAB SUMMARY\n${'─'.repeat(40)}\nDate: ${fd(rec.date)}\nResearcher: ${cfg0.name} | ${cfg0.lab}\nSupervisor: ${cfg0.pi}\n\n`;
+  out+=`OVERALL SUMMARY\n${rec.summary||'(No summary written)'}\n\n`;
+  if(exps.length){
+    out+=`EXPERIMENTS (${exps.length})\n`;
+    exps.forEach((e,i)=>{
+      const pr=DB.find('projects',e.projId);
+      out+=`\n${i+1}. ${e.title||'Untitled'}${pr?' ['+pr.name+']':''}\n`;
+      if(e.objective)out+=`   Objective: ${e.objective}\n`;
+      if(e.results)out+=`   Results: ${e.results}\n`;
+      if(e.interpretation)out+=`   Interpretation: ${e.interpretation}\n`;
+      if(e.problems)out+=`   ⚠ Problems: ${e.problems}\n`;
+    });
+  }
+  if(uniqueProjs.length)out+=`\nPROJECTS WORKED ON\n${uniqueProjs.map(p=>`• ${p}`).join('\n')}\n`;
+  if(rec.problems)out+=`\nPROBLEMS / TROUBLESHOOTING\n${rec.problems}\n`;
+  if(rec.nextSteps)out+=`\nNEXT STEPS\n${rec.nextSteps}\n`;
+  out+=`\nReview Status: ${rec.piReviewed?'✓ Reviewed by PI':'Pending PI review'}`;
+  aiOut('ai-out',out);
+}
+
+function aiLegend(){
+  const recSel=document.getElementById('ai-rec-sel2');
+  const expSel=document.getElementById('ai-exp-sel');
+  if(!recSel||!expSel)return;
+  const rec=DB.find('records',recSel.value);if(!rec)return;
+  const exp=(rec.experiments||[]).find(e=>e.id===expSel.value);
+  if(!exp){toast('Select an experiment','err');return}
+  const pr=DB.find('projects',exp.projId);
+  const tags=exp.tags||[];
+  const cellLine=tags.find(t=>['HeLa','HEK293','ASPC','MCF7','HCT116'].includes(t))||'[cell line]';
+
+  let out=`FIGURE LEGEND\n${'─'.repeat(40)}\n`;
+  out+=`Figure X. ${exp.title||'[Experiment title]'}.\n\n`;
+  if(exp.objective)out+=`${exp.objective} `;
+  out+=`${cellLine} cells were used for this experiment. `;
+  if(exp.materials)out+=`${exp.materials}. `;
+  if(exp.protocol)out+=`${exp.protocol}. `;
+  out+=`\n\n`;
+  if(exp.results)out+=`${exp.results} `;
+  if(exp.interpretation)out+=`${exp.interpretation} `;
+  out+=`\n\nData are representative of n=3 independent experiments. `;
+  out+=`Scale bar = [X] μm. Error bars represent mean ± SEM. `;
+  out+=`Statistical significance was determined by [Student's t-test/ANOVA]. *p<0.05, **p<0.01, ***p<0.001.`;
+  if(pr)out+=`\n\n[Related to ${pr.name} project]`;
+  aiOut('ai-out',out);
+}
+
+function aiMethods(){
+  const sel=document.getElementById('ai-proj-sel');if(!sel)return;
+  const proj=DB.find('projects',sel.value);if(!proj){toast('Select a project','err');return}
+  const allExps=DB.list('records').flatMap(r=>(r.experiments||[]).filter(e=>e.projId===proj.id));
+  const byTitle={};
+  allExps.forEach(e=>{const k=e.title||'Untitled';if(!byTitle[k])byTitle[k]=e});
+  const unique=Object.values(byTitle);
+
+  let out=`METHODS SECTION — ${proj.name.toUpperCase()}\n${'─'.repeat(40)}\n\n`;
+  if(!unique.length){out+='No experiments recorded for this project yet.';aiOut('ai-out',out);return}
+  unique.forEach(e=>{
+    out+=`${e.title||'Experiment'}\n`;
+    if(e.materials)out+=`Materials and Reagents: ${e.materials}\n\n`;
+    if(e.protocol)out+=`Protocol: ${e.protocol}\n\n`;
+    else out+=`[Protocol details not yet recorded]\n\n`;
+  });
+  out+=`Statistical Analysis\nData were analyzed using [software]. Results are expressed as mean ± SEM of at least three independent experiments. Statistical significance was determined using [test] with p<0.05 considered significant.`;
+  aiOut('ai-out',out);
+}
+
+function aiManuscript(){
+  const sel=document.getElementById('ai-proj-sel2');if(!sel)return;
+  const proj=DB.find('projects',sel.value);if(!proj){toast('Select a project','err');return}
+  const allExps=DB.list('records').flatMap(r=>(r.experiments||[]).filter(e=>e.projId===proj.id));
+  const withResults=allExps.filter(e=>e.results);
+
+  let out=`RESULTS DRAFT — ${proj.name}\n${'─'.repeat(40)}\n\n`;
+  if(!withResults.length){out+='No experiments with results recorded yet. Fill in the Results field for your experiments to generate a draft.';aiOut('ai-out',out);return}
+  out+=`To investigate [research question], we performed a series of experiments in the context of ${proj.name}.\n\n`;
+  withResults.forEach((e,i)=>{
+    const pr=e.title||'experiment';
+    out+=`${pr.charAt(0).toUpperCase()+pr.slice(1)}: ${e.results} `;
+    if(e.interpretation)out+=`These data suggest that ${e.interpretation} `;
+    out+=`(Figure ${i+1}).\n\n`;
+  });
+  out+=`Taken together, these results indicate that [overall conclusion]. Future experiments will [next steps].`;
+  aiOut('ai-out',out);
+}
+
+// ══════════════════════════════
+//  PAGE: SEARCH
+// ══════════════════════════════
+function renderSearch(){
+  setTB('Search','');
+  pg(`<div class="card mb4"><div style="position:relative">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--text3)"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input class="fi" id="sq" placeholder="Search everything — experiments, files, tags, projects, results..." oninput="doSearch()" style="padding:13px 13px 13px 42px;font-size:15px">
+  </div></div>
+  <div id="sres"><div style="text-align:center;padding:50px"><div style="font-size:40px;mb3">🔍</div>
+  <p class="muted mt2">Type to search across all records, files, experiments, and tags</p>
+  <div class="flex mt3 g2u" style="justify-content:center;flex-wrap:wrap">
+    ${['HeLa','HEK293','Western blot','EV','HiBiT','PLA','IF','troubleshooting','raw data'].map(t=>`<span class="tag tag-blue" style="cursor:pointer" onclick="document.getElementById('sq').value='${t}';doSearch()">${t}</span>`).join('')}
+  </div></div></div>`);
+  setTimeout(()=>document.getElementById('sq')?.focus(),50);
+}
+
+function doSearch(){
+  const q=(document.getElementById('sq')?.value||'').toLowerCase().trim();
+  const out=document.getElementById('sres');if(!out)return;
+  if(q.length<2){out.innerHTML='';return}
+
+  const records=DB.list('records');
+  const projects=DB.list('projects');
+  const atts=DB.list('atts');
+
+  const mRec=records.filter(r=>
+    (r.summary||'').toLowerCase().includes(q)||(r.problems||'').toLowerCase().includes(q)||
+    (r.nextSteps||'').toLowerCase().includes(q)||
+    (r.experiments||[]).some(e=>(e.title||'').toLowerCase().includes(q)||(e.results||'').toLowerCase().includes(q)||(e.objective||'').toLowerCase().includes(q)||(e.tags||[]).some(t=>t.toLowerCase().includes(q)))
+  );
+  const mProj=projects.filter(p=>p.name.toLowerCase().includes(q)||(p.description||'').toLowerCase().includes(q)||(p.tags||[]).some(t=>t.toLowerCase().includes(q)));
+  const mFile=atts.filter(a=>(a.name||'').toLowerCase().includes(q)||(a.description||'').toLowerCase().includes(q)||(a.tags||[]).some(t=>t.toLowerCase().includes(q)));
+
+  const tot=mRec.length+mProj.length+mFile.length;
+  out.innerHTML=`<div class="xs muted mb3">${tot} result${tot!==1?'s':''} for "<strong>${esc(q)}</strong>"</div>
+    ${mProj.length?`<div class="sec-title mb2">Projects (${mProj.length})</div>${mProj.map(p=>`<div class="fi-row mb2" onclick="go('projects','${p.id}')" style="cursor:pointer"><div class="avatar" style="background:${p.color}">${p.name[0]}</div><div class="fi-info"><div class="fi-name">${esc(p.name)}</div><div class="fi-meta">${esc(p.description||'')}</div></div></div>`).join('')}`:''}
+    ${mRec.length?`<div class="sec-title mb2 mt4">Records (${mRec.length})</div>${mRec.map(r=>`<div class="fi-row mb2" onclick="openDay('${r.date}')" style="cursor:pointer"><div style="min-width:38px;text-align:center"><div style="font-size:14px;font-weight:800;color:var(--primary)">${new Date(r.date+'T12:00:00').getDate()}</div><div class="xs muted">${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][new Date(r.date+'T12:00:00').getMonth()]}</div></div><div class="fi-info"><div class="fi-name">${esc((r.summary||'').slice(0,80))}</div><div class="fi-meta">${(r.experiments||[]).length} exp</div></div></div>`).join('')}`:''}
+    ${mFile.length?`<div class="sec-title mb2 mt4">Files (${mFile.length})</div>${mFile.map(a=>fiRow(a)).join('')}`:''}
+    ${tot===0?`<div style="text-align:center;padding:40px;color:var(--text3)">Nothing found for "${esc(q)}"</div>`:''}`;
+}
+
+// ══════════════════════════════
+//  PAGE: SETTINGS
+// ══════════════════════════════
+function renderSettings(){
+  const c=cfg();
+  setTB('Settings','');
+  pg(`<div class="g2">
+    <div>
+      <div class="card mb4">
+        <div class="card-title mb4">👤 Profile</div>
+        <div class="fg"><label class="fl">Your Name</label><input class="fi" id="s-name" value="${esc(c.name||'')}"></div>
+        <div class="fg"><label class="fl">Role / Title</label><input class="fi" id="s-role" value="${esc(c.role||'')}"></div>
+        <div class="fr">
+          <div class="fg"><label class="fl">Lab Name</label><input class="fi" id="s-lab" value="${esc(c.lab||'')}"></div>
+          <div class="fg"><label class="fl">Supervisor / PI</label><input class="fi" id="s-pi" value="${esc(c.pi||'')}"></div>
+        </div>
+        <div class="fg"><label class="fl">Email</label><input class="fi" type="email" id="s-email" value="${esc(c.email||'')}"></div>
+        <div class="fg"><label class="fl">Institution</label><input class="fi" id="s-inst" value="${esc(c.inst||'')}"></div>
+        <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+      </div>
+    </div>
+    <div>
+      <div class="card mb4">
+        <div class="card-title mb3">💾 Backup & Export</div>
+        <p class="sm muted mb3">All data is stored in your browser localStorage. Export regularly.</p>
+        <div class="flex col g2u">
+          <button class="btn btn-secondary" onclick="exportData()">⬇ Export All Data (JSON)</button>
+          <label class="btn btn-secondary" style="cursor:pointer">⬆ Import Data (JSON)<input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title mb3" style="color:var(--danger)">⚠️ Danger Zone</div>
+        <button class="btn btn-danger btn-sm" onclick="clearAll()">Delete All Data</button>
+        <p class="xs muted mt2">Permanently deletes all records, projects, and files.</p>
+      </div>
+    </div>
+  </div>`);
+}
+
+function saveProfile(){
+  const c={name:document.getElementById('s-name').value,role:document.getElementById('s-role').value,lab:document.getElementById('s-lab').value,pi:document.getElementById('s-pi').value,email:document.getElementById('s-email').value,inst:document.getElementById('s-inst').value};
+  DB.s('cfg',c);
+  document.getElementById('uname').textContent=c.name||'Researcher';
+  document.getElementById('uavatar').textContent=(c.name||'R')[0].toUpperCase();
+  document.getElementById('urole').textContent=c.role||'Lab Member';
+  toast('Profile saved!','ok');
+}
+
+function exportData(){
+  const d={};['records','projects','atts','cmts','files','cfg'].forEach(k=>{d[k]=DB.g(k)});
+  const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`labdaily-backup-${today()}.json`;a.click();
+  toast('Exported!','ok');
+}
+function importData(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(confirm('Overwrite all data?')){['records','projects','atts','cmts','files','cfg'].forEach(k=>{if(d[k]!==undefined)DB.s(k,d[k])});toast('Imported!','ok');go(CUR)}}catch{toast('Invalid file','err')}};r.readAsText(f);
+}
+function clearAll(){
+  if(!confirm('Delete ALL data permanently?'))return;
+  ['records','projects','atts','cmts','files'].forEach(k=>localStorage.removeItem('ld_'+k));
+  toast('Cleared');go('today');
+}
+
+// ══════════════════════════════
+//  MODALS
+// ══════════════════════════════
+function modal(html,cls=''){
+  document.getElementById('mc').innerHTML=`<div class="overlay" onclick="if(event.target===this)closeM()">${'<div class="modal '+(cls||'')+'" onclick="event.stopPropagation()">'+ html+'</div>'}</div>`;
+  applyAutoNum();
+}
+function closeM(){document.getElementById('mc').innerHTML='';go(CUR,CUR_SUB)}
+
+// Record modal
+function openRecModal(ds){
+  ds=ds||today();
+  const r=DB.list('records').find(x=>x.date===ds)||{};
+  const projects=DB.list('projects');
+  const selProjs=r.projIds||[];
+  modal(`
+    <div class="mh"><h2>${r.id?'Edit':'New'} Record — ${fd(ds)}</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="rm-date" value="${ds}">
+      <input type="hidden" id="rm-id" value="${r.id||''}">
+
+      <!-- Project selector -->
+      <div class="fg">
+        <div class="flex ic jb mb2">
+          <label class="fl" style="margin:0">Projects Worked On Today</label>
+          <button class="btn btn-secondary btn-sm" onclick="rmQuickNewProj()" style="font-size:11px">＋ New Project</button>
+        </div>
+        <div id="rm-proj-list" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--border);border-radius:var(--r);min-height:36px;background:var(--surface2)">
+          ${projects.length
+            ? projects.map(p=>`
+              <label style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;cursor:pointer;border:2px solid ${selProjs.includes(p.id)?p.color:'var(--border)'};background:${selProjs.includes(p.id)?p.color+'18':'var(--surface)'};transition:all .15s">
+                <input type="checkbox" value="${p.id}" ${selProjs.includes(p.id)?'checked':''} style="accent-color:${p.color}">
+                <span style="font-size:12px;font-weight:500;color:${selProjs.includes(p.id)?p.color:'var(--text2)'}">${esc(p.name)}</span>
+              </label>`).join('')
+            : '<span class="xs muted">No projects yet — click ＋ New Project</span>'
+          }
+        </div>
+      </div>
+
+      <div class="fg"><label class="fl">Overall Summary *</label>
+        <textarea class="ft" id="rm-sum" style="min-height:120px" placeholder="1. What did you do today?&#10;2. Key findings?&#10;3. Overall progress?">${esc(r.summary||'')}</textarea>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Problems / Troubleshooting</label><textarea class="ft" id="rm-prob" placeholder="Any issues encountered...">${esc(r.problems||'')}</textarea></div>
+        <div class="fg"><label class="fl">Next Steps</label><textarea class="ft" id="rm-next" placeholder="What to do next...">${esc(r.nextSteps||'')}</textarea></div>
+      </div>
+    </div>
+    <div class="mf">
+      ${r.id?`<button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.id}')">🗑 Delete Record</button>`:''}
+      <button class="btn btn-secondary" onclick="closeM()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRec()">Save</button>
+    </div>
+  `);
+}
+
+function rmQuickNewProj(){
+  const name=prompt('New project name:');
+  if(!name||!name.trim())return;
+  const colors=['#2563eb','#16a34a','#9333ea','#ea580c','#0891b2','#be185d'];
+  const color=colors[DB.list('projects').length%colors.length];
+  const p=DB.push('projects',{id:uid(),name:name.trim(),category:'General',color,status:'active',tags:[],description:'',createdAt:Date.now()});
+  refreshProjSubnav();
+  // Append checkbox to the list
+  const list=document.getElementById('rm-proj-list');
+  if(list){
+    const label=document.createElement('label');
+    label.style.cssText=`display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;cursor:pointer;border:2px solid ${color};background:${color}18;transition:all .15s`;
+    label.innerHTML=`<input type="checkbox" value="${p.id}" checked style="accent-color:${color}"><span style="font-size:12px;font-weight:500;color:${color}">${esc(p.name)}</span>`;
+    list.innerHTML=list.innerHTML.replace('<span class="xs muted">No projects yet — click ＋ New Project</span>','');
+    list.appendChild(label);
+  }
+  toast('Project created!','t-ok');
+}
+
+function saveRec(){
+  const ds=document.getElementById('rm-date').value;
+  const id=document.getElementById('rm-id').value;
+  const sum=document.getElementById('rm-sum').value.trim();
+  if(!sum){alert('Please write a summary.');return}
+  const projIds=[...document.querySelectorAll('#rm-proj-list input[type=checkbox]:checked')].map(cb=>cb.value);
+  const patch={summary:sum,problems:document.getElementById('rm-prob').value,nextSteps:document.getElementById('rm-next').value,projIds,updatedAt:Date.now()};
+  if(id){DB.upd('records',id,patch)}
+  else{DB.push('records',{...patch,id:uid(),date:ds,experiments:[],piReviewed:false,createdAt:Date.now()})}
+  toast('Saved!','t-ok');closeM();
+}
+
+function deleteRecord(id){
+  if(!confirm('Delete this entire daily record? This cannot be undone.'))return;
+  DB.del('records',id);
+  toast('Record deleted');
+  closeM();
+}
+
+// Experiment modal
+const QUICK_TAGS=['HeLa','HEK293','ASPC','MCF7','CD9','HA','integrin','Western blot','PLA','IF','EV','HiBiT','SLEEQ','troubleshooting','raw data','final figure'];
+let selTags=[];
+
+function openExpModal(recId,expId='',forceProjId='',tmpl=null){
+  const rec=DB.find('records',recId);if(!rec)return;
+  const exp=expId?(rec.experiments||[]).find(e=>e.id===expId):null;
+  const projs=DB.list('projects');
+  selTags=[...(exp?.tags||[])];
+
+  const phFields=tmpl?tmpl.fields.slice():['What is the goal?','Step 1:\nStep 2:\nStep 3:','Antibodies, reagents, cell lines...','Quantitative observations...','What do the results mean?','Issues or deviations...'];
+
+  modal(`
+    <div class="mh"><h2>${exp?'Edit':'Add'} Experiment${tmpl?' — '+tmpl.name:''}</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="em-rid" value="${recId}">
+      <input type="hidden" id="em-eid" value="${expId}">
+      <div class="fr">
+        <div class="fg"><label class="fl">Title *</label><input class="fi" id="em-title" value="${esc(exp?.title||'')}" placeholder="e.g. Western blot for CD9"></div>
+        <div class="fg"><label class="fl">Project</label><select class="fs" id="em-proj">
+          <option value="">-- None --</option>
+          ${projs.map(p=>`<option value="${p.id}" ${(exp?.projId||forceProjId)===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+        </select></div>
+      </div>
+      <div class="fg"><label class="fl">Objective / Purpose</label><textarea class="ft" id="em-obj" placeholder="${phFields[0]||''}">${esc(exp?.objective||'')}</textarea></div>
+      <div class="fg"><label class="fl">Protocol / Procedure</label><textarea class="ft" id="em-prot" style="min-height:100px" placeholder="${phFields[1]||''}">${esc(exp?.protocol||'')}</textarea></div>
+      <div class="fg"><label class="fl">Materials / Reagents</label><textarea class="ft" id="em-mat" placeholder="${phFields[2]||''}">${esc(exp?.materials||'')}</textarea></div>
+      <div class="fg"><label class="fl">Results</label><textarea class="ft" id="em-res" style="min-height:100px" placeholder="${phFields[3]||''}">${esc(exp?.results||'')}</textarea></div>
+      <div class="fg"><label class="fl">Data Interpretation</label><textarea class="ft" id="em-interp" placeholder="${phFields[4]||''}">${esc(exp?.interpretation||'')}</textarea></div>
+      <div class="fg"><label class="fl">Problems / Notes</label><textarea class="ft" id="em-prob" placeholder="${phFields[5]||''}">${esc(exp?.problems||'')}</textarea></div>
+      <div class="fg">
+        <label class="fl">Tags</label>
+        <div class="flex g2u mb2" style="flex-wrap:wrap" id="tagbox">
+          ${QUICK_TAGS.map(t=>`<span class="tag ${selTags.includes(t)?'tag-blue':'tag-gray'}" style="cursor:pointer" onclick="togTag('${t}',this)">${t}</span>`).join('')}
+        </div>
+        <input class="fi" id="em-tags" placeholder="Custom tags (comma separated)" value="${esc((exp?.tags||[]).filter(t=>!QUICK_TAGS.includes(t)).join(', '))}">
+      </div>
+    </div>
+    <div class="mf">
+      ${exp?`<button class="btn btn-danger btn-sm" onclick="delExp('${recId}','${expId}')">Delete</button>`:''}
+      <button class="btn btn-secondary" onclick="closeM()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveExp()">Save</button>
+    </div>
+  `,'modal-lg');
+}
+
+function togTag(tag,el){
+  if(selTags.includes(tag)){selTags=selTags.filter(t=>t!==tag);el.className='tag tag-gray'}
+  else{selTags.push(tag);el.className='tag tag-blue'}
+}
+function saveExp(){
+  const recId=document.getElementById('em-rid').value;
+  const expId=document.getElementById('em-eid').value;
+  const title=document.getElementById('em-title').value.trim();
+  if(!title){alert('Title required.');return}
+  const custom=document.getElementById('em-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const tags=[...new Set([...selTags,...custom])];
+  const data={title,projId:document.getElementById('em-proj').value,objective:document.getElementById('em-obj').value,protocol:document.getElementById('em-prot').value,materials:document.getElementById('em-mat').value,results:document.getElementById('em-res').value,interpretation:document.getElementById('em-interp').value,problems:document.getElementById('em-prob').value,tags,updatedAt:Date.now()};
+  const rec=DB.find('records',recId);if(!rec)return;
+  let exps=rec.experiments||[];
+  if(expId){exps=exps.map(e=>e.id===expId?{...e,...data}:e)}
+  else{exps=[...exps,{...data,id:uid(),createdAt:Date.now()}]}
+  DB.upd('records',recId,{experiments:exps,updatedAt:Date.now()});
+  selTags=[];toast('Saved!','ok');closeM();
+}
+function delExp(recId,expId){
+  if(!confirm('Delete experiment?'))return;
+  const rec=DB.find('records',recId);if(!rec)return;
+  DB.upd('records',recId,{experiments:(rec.experiments||[]).filter(e=>e.id!==expId)});
+  selTags=[];toast('Deleted');closeM();
+}
+
+// Project modal
+function openProjModal(id){
+  const p=id?DB.find('projects',id):null;
+  modal(`
+    <div class="mh"><h2>${p?'Edit':'New'} Project</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      ${p?`<input type="hidden" id="pm-id" value="${p.id}">`:''}
+      <div class="fg"><label class="fl">Project Name *</label><input class="fi" id="pm-name" value="${esc(p?.name||'')}" placeholder="e.g. EV / Exosome Project"></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Category</label><select class="fs" id="pm-cat">
+          ${['EV / Exosome','HiBiT / SLEEQ','Western Blot','Immunofluorescence / PLA','Cell Biology','Animal Experiment','Manuscript / Figures','Other'].map(c=>`<option ${p?.category===c?'selected':''}>${c}</option>`).join('')}
+        </select></div>
+        <div class="fg"><label class="fl">Status</label><select class="fs" id="pm-stat">
+          <option value="active" ${!p||p.status==='active'?'selected':''}>Active</option>
+          <option value="paused" ${p?.status==='paused'?'selected':''}>Paused</option>
+          <option value="completed" ${p?.status==='completed'?'selected':''}>Completed</option>
+        </select></div>
+      </div>
+      <div class="fg"><label class="fl">Description</label><textarea class="ft" id="pm-desc">${esc(p?.description||'')}</textarea></div>
+      <div class="fg"><label class="fl">Color</label>
+        <div class="flex g2u" id="colbox">
+          ${PROJ_COLORS.map((c,i)=>`<div id="pc${i}" onclick="pickCol('${c}',${i})" style="width:26px;height:26px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${p?.color===c?'#000':'transparent'}"></div>`).join('')}
+        </div>
+        <input type="hidden" id="pm-col" value="${p?.color||PROJ_COLORS[0]}">
+      </div>
+      <div class="fg"><label class="fl">Tags (comma separated)</label><input class="fi" id="pm-tags" value="${(p?.tags||[]).join(', ')}" placeholder="e.g. CD9, exosome, HeLa"></div>
+    </div>
+    <div class="mf">
+      ${p?`<button class="btn btn-danger btn-sm" onclick="delProj('${p.id}')">Delete</button>`:''}
+      <button class="btn btn-secondary" onclick="closeM()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProj()">Save</button>
+    </div>
+  `);
+}
+function pickCol(c,i){
+  document.getElementById('pm-col').value=c;
+  PROJ_COLORS.forEach((_,j)=>{const el=document.getElementById('pc'+j);if(el)el.style.borderColor=j===i?'#000':'transparent'});
+}
+function saveProj(){
+  const id=document.getElementById('pm-id')?.value;
+  const name=document.getElementById('pm-name').value.trim();
+  if(!name){alert('Name required.');return}
+  const data={name,category:document.getElementById('pm-cat').value,status:document.getElementById('pm-stat').value,description:document.getElementById('pm-desc').value,color:document.getElementById('pm-col').value||PROJ_COLORS[0],tags:document.getElementById('pm-tags').value.split(',').map(t=>t.trim()).filter(Boolean),updatedAt:Date.now()};
+  if(id){DB.upd('projects',id,data)}else{DB.push('projects',{...data,id:uid(),createdAt:Date.now()})}
+  refreshProjSubnav();toast('Saved!','ok');closeM();
+}
+function delProj(id){
+  if(!confirm('Delete project?'))return;
+  DB.del('projects',id);refreshProjSubnav();toast('Deleted');closeM();
+}
+
+// Upload modal
+let pendFiles=[];
+function openUpload(ds,recId){
+  ds=ds||today();
+  const projs=DB.list('projects');
+  modal(`
+    <div class="mh"><h2>Upload Files</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="up-date" value="${ds}">
+      <div class="dz" id="dz" onclick="document.getElementById('ufinput').click()">
+        <div style="font-size:32px;mb3">📂</div>
+        <p><strong>Click to select files</strong> or drag & drop</p>
+        <p style="font-size:12px;margin-top:4px">Any file type supported</p>
+        <input type="file" id="ufinput" multiple style="display:none" onchange="handleFiles(this.files)">
+      </div>
+      <div id="uprev" class="mt3"></div>
+      <div class="fr mt3">
+        <div class="fg"><label class="fl">Project</label><select class="fs" id="up-proj"><option value="">-- None --</option>${projs.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
+        <div class="fg"><label class="fl">Description</label><input class="fi" id="up-desc" placeholder="Brief description..."></div>
+      </div>
+      <div class="fg"><label class="fl">Tags (comma separated)</label><input class="fi" id="up-tags" placeholder="e.g. raw data, WB, HeLa"></div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeM()">Cancel</button><button class="btn btn-primary" id="upbtn" onclick="doUpload()" disabled>Upload</button></div>
+  `);
+  setupDZ();
+}
+function setupDZ(){
+  const dz=document.getElementById('dz');if(!dz)return;
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');handleFiles(e.dataTransfer.files)});
+}
+function handleFiles(files){
+  pendFiles=[...files];
+  const prev=document.getElementById('uprev');
+  if(prev)prev.innerHTML=pendFiles.map(f=>`<div class="fi-row mb2">${ficon(f.name)}<div class="fi-info"><div class="fi-name">${esc(f.name)}</div><div class="fi-meta">${fsz(f.size)}</div></div></div>`).join('');
+  const btn=document.getElementById('upbtn');if(btn)btn.disabled=!pendFiles.length;
+}
+function doUpload(){
+  if(!pendFiles.length)return;
+  const ds=document.getElementById('up-date').value;
+  const projId=document.getElementById('up-proj').value;
+  const desc=document.getElementById('up-desc').value;
+  const tags=document.getElementById('up-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const btn=document.getElementById('upbtn');btn.textContent='Uploading...';btn.disabled=true;
+  let done=0;
+  pendFiles.forEach(file=>{
+    const fr=new FileReader();
+    fr.onload=e=>{
+      const stored=DB.push('files',{id:uid(),name:file.name,size:file.size,type:file.type,data:e.target.result,at:Date.now()});
+      DB.push('atts',{id:uid(),fileId:stored.id,name:file.name,size:file.size,fileType:file.type,date:ds,projId,description:desc,tags,uploadedAt:Date.now()});
+      done++;if(done===pendFiles.length){pendFiles=[];toast(`${done} file${done!==1?'s':''} uploaded!`,'ok');closeM()}
+    };fr.readAsDataURL(file);
+  });
+}
+
+// Comment modal
+function openCmtModal(recId){
+  modal(`
+    <div class="mh"><h2>Add Comment</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="cm-rid" value="${recId}">
+      <div class="fg"><label class="fl">Role</label><select class="fs" id="cm-role"><option value="researcher">Researcher</option><option value="pi">PI / Supervisor</option></select></div>
+      <div class="fg"><label class="fl">Comment *</label><textarea class="ft" id="cm-text" style="min-height:120px" placeholder="Write your comment..."></textarea></div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="saveCmt()">Post</button></div>
+  `);
+}
+function saveCmt(){
+  const text=document.getElementById('cm-text').value.trim();if(!text){alert('Write a comment.');return}
+  DB.push('cmts',{id:uid(),recId:document.getElementById('cm-rid').value,role:document.getElementById('cm-role').value,text,at:Date.now()});
+  toast('Posted!','ok');closeM();
+}
+
+// ══════════════════════════════
+//  HELPERS
+// ══════════════════════════════
+function fiRow(a){
+  const pr=DB.find('projects',a.projId);
+  return`<div class="fi-row mb2">
+    ${ficon(a.name)}
+    <div class="fi-info"><div class="fi-name">${esc(a.name)}</div>
+    <div class="fi-meta">${fsz(a.size)}${a.description?' · '+esc(a.description):''}${pr?' · '+esc(pr.name):''} · ${ft(a.uploadedAt)}</div></div>
+    <div class="flex ic g2u">
+      ${a.fileId?`<button class="icon-btn" onclick="dlFile('${a.fileId}')" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>`:''}
+      <button class="icon-btn" onclick="delAtt('${a.id}')" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>
+    </div>
+  </div>`;
+}
+function dlFile(fid){const f=DB.find('files',fid);if(!f)return toast('File not found','err');const a=document.createElement('a');a.href=f.data;a.download=f.name;a.click()}
+function delAtt(id){if(!confirm('Delete?'))return;DB.del('atts',id);toast('Deleted');go(CUR,CUR_SUB)}
+function markRev(id){DB.upd('records',id,{piReviewed:true,reviewedAt:Date.now()});toast('Marked reviewed!','ok');go(CUR,CUR_SUB)}
+function copyLink(){navigator.clipboard.writeText(location.href+'#pi').then(()=>toast('Link copied!','ok')).catch(()=>toast('Could not copy'))}
+
+function exportPrint(){
+  const td=today();const rec=DB.list('records').find(r=>r.date===td);
+  if(!rec){toast('No record today','err');return}
+  const cfg0=cfg();const exps=rec.experiments||[];
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Lab Summary ${td}</title>
+  <style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#333}h1{color:#1d4ed8;border-bottom:2px solid #1d4ed8;padding-bottom:8px}h2{color:#374151;margin-top:24px}.meta{color:#6b7280;font-size:14px;margin-bottom:24px}.exp{border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px}.lbl{font-size:11px;font-weight:bold;text-transform:uppercase;color:#9ca3af;margin-top:10px}p{margin:4px 0;line-height:1.7}@media print{body{margin:0;padding:20px}}</style>
+  </head><body>
+  <h1>🧬 Daily Lab Summary</h1>
+  <div class="meta"><strong>Date:</strong> ${fd(td)} &nbsp;|&nbsp; <strong>Researcher:</strong> ${esc(cfg0.name)} &nbsp;|&nbsp; <strong>Lab:</strong> ${esc(cfg0.lab)} &nbsp;|&nbsp; <strong>PI:</strong> ${esc(cfg0.pi)}</div>
+  <h2>Summary</h2><p style="white-space:pre-wrap">${esc(rec.summary||'')}</p>
+  ${exps.length?`<h2>Experiments (${exps.length})</h2>${exps.map(e=>{const pr=DB.find('projects',e.projId);return`<div class="exp"><strong>${esc(e.title||'Untitled')}</strong>${pr?` <em>[${esc(pr.name)}]</em>`:''}<div class="lbl">Objective</div><p>${esc(e.objective||'')}</p><div class="lbl">Results</div><p style="white-space:pre-wrap">${esc(e.results||'')}</p>${e.interpretation?`<div class="lbl">Interpretation</div><p>${esc(e.interpretation)}</p>`:''}</div>`;}).join('')}`:''}
+  ${rec.problems?`<h2>Problems</h2><p style="white-space:pre-wrap">${esc(rec.problems)}</p>`:''}
+  ${rec.nextSteps?`<h2>Next Steps</h2><p style="white-space:pre-wrap">${esc(rec.nextSteps)}</p>`:''}
+  <hr style="margin-top:40px"><p style="color:#9ca3af;font-size:12px">Generated by LabDaily · ${new Date().toLocaleString()}</p>
+  <script>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+function setTB(title,actHtml=''){
+  document.getElementById('tbTitle').textContent=title;
+  document.getElementById('tbAct').innerHTML=actHtml;
+}
+function pg(html){document.getElementById('pg').innerHTML=html}
+
+function switchTab(el,...ids){
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  ids.forEach((id,i)=>{const el2=document.getElementById(id);if(el2)el2.classList.toggle('hidden',i!==0)});
+}
+
+function toast(msg,type=''){
+  const el=document.createElement('div');
+  el.className=`toast ${type==='ok'?'t-ok':type==='err'?'t-err':''}`;
+  el.textContent=msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+function refreshProjSubnav(){
+  const projs=DB.list('projects');
+  const sub=document.getElementById('proj-subnav');
+  if(!sub)return;
+  sub.innerHTML=projs.map(p=>`<div class="nav-sub-item" onclick="go('projects','${p.id}')"><span style="color:${p.color}">●</span> ${esc(p.name)}</div>`).join('');
+}
+
+// Auto-numbering for textareas
+function applyAutoNum(){
+  document.querySelectorAll('.ft').forEach(ta=>{
+    if(ta.dataset.num)return;ta.dataset.num='1';
+    ta.addEventListener('keydown',function(e){
+      if(e.key!=='Enter')return;
+      const v=this.value,pos=this.selectionStart;
+      const ls=v.lastIndexOf('\n',pos-1)+1;
+      const line=v.slice(ls,pos);
+      const m=line.match(/^(\d+)\.\s/);
+      if(!m)return;
+      e.preventDefault();
+      if(line.trim()===m[0].trim()){this.value=v.slice(0,ls)+v.slice(pos);this.selectionStart=this.selectionEnd=ls;return}
+      const ins='\n'+(parseInt(m[1])+1)+'. ';
+      this.value=v.slice(0,pos)+ins+v.slice(pos);
+      this.selectionStart=this.selectionEnd=pos+ins.length;
+    });
+  });
+}
+
+// ══════════════════════════════
+//  PAGE: ELN DETAIL
+// ══════════════════════════════
+function renderELN(sub){
+  const [recId,expId]=( sub||'').split('|');
+  const rec=DB.find('records',recId);
+  const exp=rec&&(rec.experiments||[]).find(e=>e.id===expId);
+  if(!rec||!exp){pg('<p class="muted" style="padding:40px">Experiment not found.</p>');return}
+  const proj=DB.find('projects',exp.projId);
+  const atts=DB.list('atts').filter(a=>a.expId===expId);
+
+  setTB((exp.title||'Untitled')+' — ELN',`
+    <button class="btn btn-secondary btn-sm" onclick="go('today')">← Back</button>
+    <button class="btn btn-secondary btn-sm" onclick="elnPrint('${recId}','${expId}')">⬇ Print / PDF</button>
+    <button class="btn btn-primary btn-sm" onclick="saveELN('${recId}','${expId}')">💾 Save</button>
+  `);
+
+  const detail=exp.elnDetail||'';
+
+  pg(`
+    <div style="display:flex;gap:16px;align-items:flex-start">
+
+      <!-- ── EDITOR COLUMN ── -->
+      <div style="flex:1;min-width:0">
+
+        <!-- Meta bar -->
+        <div class="card mb3" style="padding:12px 16px">
+          <div class="flex ic g4u" style="flex-wrap:wrap">
+            <div><div class="xs muted">Date</div><div class="semi">${fd(rec.date)}</div></div>
+            <div><div class="xs muted">Project</div><div class="semi" style="color:${proj?.color||'var(--primary)'}">${esc(proj?.name||'—')}</div></div>
+            <div><div class="xs muted">Tags</div><div class="flex g2u">${(exp.tags||[]).map(t=>`<span class="tag tag-blue">${t}</span>`).join('')||'<span class="muted xs">none</span>'}</div></div>
+            <div style="margin-left:auto"><span id="eln-save-status" class="xs muted">All changes saved</span></div>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="card mb2" style="padding:8px 10px">
+          <div class="flex ic g2u" style="flex-wrap:wrap;gap:3px">
+            <!-- Format -->
+            <select onchange="elnCmd('formatBlock',this.value);this.value=''" style="border:1px solid var(--border);border-radius:5px;padding:4px 6px;font-size:12px;height:28px;background:var(--surface)">
+              <option value="">Paragraph</option>
+              <option value="h1">Heading 1</option>
+              <option value="h2">Heading 2</option>
+              <option value="h3">Heading 3</option>
+              <option value="pre">Code Block</option>
+            </select>
+            <div style="width:1px;height:24px;background:var(--border);margin:0 2px"></div>
+            <!-- Bold Italic Underline Strike -->
+            ${[['bold','<b>B</b>','Bold'],['italic','<i>I</i>','Italic'],['underline','<u>U</u>','Underline'],['strikeThrough','<s>S</s>','Strikethrough']].map(([cmd,lbl,tt])=>`<button class="eln-tb" onclick="elnCmd('${cmd}')" title="${tt}">${lbl}</button>`).join('')}
+            <div style="width:1px;height:24px;background:var(--border);margin:0 2px"></div>
+            <!-- Lists -->
+            <button class="eln-tb" onclick="elnCmd('insertUnorderedList')" title="Bullet list">≡</button>
+            <button class="eln-tb" onclick="elnCmd('insertOrderedList')" title="Numbered list">1.</button>
+            <div style="width:1px;height:24px;background:var(--border);margin:0 2px"></div>
+            <!-- Align -->
+            <button class="eln-tb" onclick="elnCmd('justifyLeft')" title="Align left">⬅</button>
+            <button class="eln-tb" onclick="elnCmd('justifyCenter')" title="Center">≡</button>
+            <button class="eln-tb" onclick="elnCmd('justifyRight')" title="Align right">➡</button>
+            <div style="width:1px;height:24px;background:var(--border);margin:0 2px"></div>
+            <!-- Color & Highlight -->
+            <label class="eln-tb" title="Text color" style="padding:0 4px">
+              A<input type="color" onchange="elnCmd('foreColor',this.value)" style="width:0;height:0;opacity:0;position:absolute">
+            </label>
+            <label class="eln-tb" title="Highlight" style="padding:0 4px;background:#fef08a">
+              H<input type="color" value="#fef08a" onchange="elnCmd('hiliteColor',this.value)" style="width:0;height:0;opacity:0;position:absolute">
+            </label>
+            <div style="width:1px;height:24px;background:var(--border);margin:0 2px"></div>
+            <!-- Table & Image & Link & HR -->
+            <button class="eln-tb" onclick="elnInsertTable()" title="Insert table">⊞</button>
+            <button class="eln-tb" onclick="elnInsertImage()" title="Insert image">🖼</button>
+            <button class="eln-tb" onclick="elnInsertLink()" title="Insert link">🔗</button>
+            <button class="eln-tb" onclick="elnCmd('insertHorizontalRule')" title="Divider">—</button>
+            <div style="width:1px;height:24px;background:var(--border);margin:0 2px"></div>
+            <!-- Undo / Redo -->
+            <button class="eln-tb" onclick="elnCmd('undo')" title="Undo">↩</button>
+            <button class="eln-tb" onclick="elnCmd('redo')" title="Redo">↪</button>
+          </div>
+        </div>
+
+        <!-- Editor -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div id="eln-editor"
+            contenteditable="true"
+            spellcheck="true"
+            style="min-height:600px;padding:28px 32px;outline:none;font-size:14px;line-height:1.8;color:var(--text)"
+            oninput="elnAutoSave('${recId}','${expId}')"
+          >${detail||elnDefaultContent(exp)}</div>
+        </div>
+
+      </div>
+
+      <!-- ── SIDEBAR COLUMN ── -->
+      <div style="width:280px;flex-shrink:0">
+
+        <!-- Quick fields -->
+        <div class="card mb3">
+          <div class="card-title mb3">Quick Fields</div>
+          ${[['Objective','elm-obj',exp.objective||''],['Materials / Reagents','elm-mat',exp.materials||''],['Protocol','elm-prot',exp.protocol||''],['Results','elm-res',exp.results||''],['Interpretation','elm-interp',exp.interpretation||''],['Problems','elm-prob',exp.problems||'']].map(([label,id,val])=>`
+            <div class="fg"><label class="fl">${label}</label><textarea class="ft" id="${id}" style="min-height:60px;font-size:12px">${esc(val)}</textarea></div>
+          `).join('')}
+          <button class="btn btn-primary btn-sm w100" onclick="saveELN('${recId}','${expId}')">Save All Fields</button>
+        </div>
+
+        <!-- Attachments -->
+        <div class="card">
+          <div class="ch"><div class="card-title">📎 Attachments</div>
+            <button class="btn btn-secondary btn-sm" onclick="openExpUpload('${recId}','${expId}','${rec.date}')">+ Add</button>
+          </div>
+          <div id="eln-atts">
+            ${atts.length?atts.map(a=>elnAttRow(a)).join(''):'<p class="sm muted">No attachments yet.</p>'}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `);
+}
+
+function elnDefaultContent(exp){
+  return`<h2>${esc(exp.title||'Experiment Title')}</h2>
+<p><strong>Date:</strong> ${fd(today())} &nbsp; <strong>Researcher:</strong> ${esc(cfg().name)}</p>
+<hr>
+<h3>Objective</h3>
+<p>${esc(exp.objective||'')}</p>
+<h3>Materials &amp; Reagents</h3>
+<p>${esc(exp.materials||'')}</p>
+<h3>Protocol</h3>
+<p>${esc(exp.protocol||'')}</p>
+<h3>Results</h3>
+<p>${esc(exp.results||'')}</p>
+<h3>Data Interpretation</h3>
+<p>${esc(exp.interpretation||'')}</p>
+<h3>Problems / Notes</h3>
+<p>${esc(exp.problems||'')}</p>
+<h3>Next Steps</h3>
+<p></p>`;
+}
+
+function elnCmd(cmd,val){
+  document.getElementById('eln-editor').focus();
+  document.execCommand(cmd,false,val||null);
+}
+
+function elnInsertTable(){
+  const rows=parseInt(prompt('Number of rows:','3')||'0');
+  const cols=parseInt(prompt('Number of columns:','3')||'0');
+  if(!rows||!cols)return;
+  let html=`<table style="border-collapse:collapse;width:100%;margin:12px 0"><tbody>`;
+  for(let r=0;r<rows;r++){
+    html+='<tr>';
+    for(let c=0;c<cols;c++){
+      if(r===0) html+=`<th style="border:1px solid #cbd5e1;padding:8px 10px;background:#f1f5f9;font-weight:700;text-align:left">Header ${c+1}</th>`;
+      else html+=`<td style="border:1px solid #cbd5e1;padding:8px 10px">Cell</td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table><p></p>';
+  document.getElementById('eln-editor').focus();
+  document.execCommand('insertHTML',false,html);
+}
+
+function elnInsertImage(){
+  // Show a small picker: upload file or enter URL
+  const existing=document.getElementById('eln-img-picker');
+  if(existing){existing.remove();return}
+  const picker=document.createElement('div');
+  picker.id='eln-img-picker';
+  picker.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;z-index:2000;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.2)';
+  picker.innerHTML=`
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">Insert Image</div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:5px">Upload Image File</label>
+      <input type="file" id="eln-img-file" accept="image/*" style="font-size:13px;width:100%">
+    </div>
+    <div style="text-align:center;color:var(--text3);font-size:12px;margin:8px 0">— or —</div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text2);margin-bottom:5px">Image URL</label>
+      <input class="fi" id="eln-img-url" placeholder="https://..." style="font-size:13px">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('eln-img-picker').remove()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="elnDoInsertImage()">Insert</button>
+    </div>`;
+  document.body.appendChild(picker);
+}
+
+function elnDoInsertImage(){
+  const fileInput=document.getElementById('eln-img-file');
+  const urlInput=document.getElementById('eln-img-url');
+  const picker=document.getElementById('eln-img-picker');
+  if(fileInput&&fileInput.files[0]){
+    const fr=new FileReader();
+    fr.onload=e=>{
+      document.getElementById('eln-editor').focus();
+      document.execCommand('insertHTML',false,`<img src="${e.target.result}" style="max-width:100%;border-radius:6px;margin:8px 0" alt="image"><p></p>`);
+      picker&&picker.remove();
+    };
+    fr.readAsDataURL(fileInput.files[0]);
+  } else if(urlInput&&urlInput.value.trim()){
+    document.getElementById('eln-editor').focus();
+    document.execCommand('insertHTML',false,`<img src="${esc(urlInput.value.trim())}" style="max-width:100%;border-radius:6px;margin:8px 0" alt="image"><p></p>`);
+    picker&&picker.remove();
+  } else{alert('Please select a file or enter a URL.');}
+}
+
+function elnInsertLink(){
+  const url=prompt('Enter URL:','https://');
+  if(!url)return;
+  const text=prompt('Link text:','Link');
+  if(!text)return;
+  document.getElementById('eln-editor').focus();
+  document.execCommand('insertHTML',false,`<a href="${esc(url)}" target="_blank" style="color:var(--primary)">${esc(text)}</a>`);
+}
+
+let elnSaveTimer=null;
+function elnAutoSave(recId,expId){
+  document.getElementById('eln-save-status').textContent='Saving…';
+  clearTimeout(elnSaveTimer);
+  elnSaveTimer=setTimeout(()=>{ elnSaveContent(recId,expId); },1200);
+}
+
+function elnSaveContent(recId,expId){
+  const editor=document.getElementById('eln-editor');
+  if(!editor)return;
+  const rec=DB.find('records',recId);if(!rec)return;
+  const exps=(rec.experiments||[]).map(e=>e.id===expId?{...e,elnDetail:editor.innerHTML,updatedAt:Date.now()}:e);
+  DB.upd('records',recId,{experiments:exps});
+  const st=document.getElementById('eln-save-status');
+  if(st)st.textContent='All changes saved · '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+
+function saveELN(recId,expId){
+  // Save editor HTML
+  elnSaveContent(recId,expId);
+  // Save quick fields
+  const fields={objective:'elm-obj',materials:'elm-mat',protocol:'elm-prot',results:'elm-res',interpretation:'elm-interp',problems:'elm-prob'};
+  const rec=DB.find('records',recId);if(!rec)return;
+  const exps=(rec.experiments||[]).map(e=>{
+    if(e.id!==expId)return e;
+    const patch={};
+    Object.entries(fields).forEach(([k,id])=>{const el=document.getElementById(id);if(el)patch[k]=el.value});
+    return{...e,...patch,updatedAt:Date.now()};
+  });
+  DB.upd('records',recId,{experiments:exps});
+  toast('ELN saved!','ok');
+}
+
+function openExpUpload(recId,expId,dateStr){
+  const projs=DB.list('projects');
+  const rec=DB.find('records',recId);
+  const exp=rec&&(rec.experiments||[]).find(e=>e.id===expId);
+  modal(`
+    <div class="mh"><h2>Upload Attachments</h2><button class="icon-btn" onclick="closeELNUpload()">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="eu-rid" value="${recId}">
+      <input type="hidden" id="eu-eid" value="${expId}">
+      <input type="hidden" id="eu-date" value="${dateStr}">
+      <div class="dz" id="eudz" onclick="document.getElementById('eufinput').click()">
+        <div style="font-size:28px">📂</div>
+        <p><strong>Click to select</strong> or drag & drop</p>
+        <p style="font-size:12px;margin-top:4px">Images, Excel, Word, PDF, PPT, Prism, Video, ZIP…</p>
+        <input type="file" id="eufinput" multiple style="display:none" onchange="euHandleFiles(this.files)">
+      </div>
+      <div id="eu-prev" class="mt3"></div>
+      <div class="fg mt3"><label class="fl">Description</label><input class="fi" id="eu-desc" placeholder="What are these files?"></div>
+      <div class="fg"><label class="fl">Tags (comma separated)</label><input class="fi" id="eu-tags" placeholder="e.g. raw data, Western blot"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-secondary" onclick="closeELNUpload()">Cancel</button>
+      <button class="btn btn-primary" id="eu-btn" onclick="doExpUpload()" disabled>Upload</button>
+    </div>
+  `);
+  // setup dropzone
+  const dz=document.getElementById('eudz');
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');euHandleFiles(e.dataTransfer.files)});
+}
+
+let euPendFiles=[];
+function euHandleFiles(files){
+  euPendFiles=[...files];
+  const prev=document.getElementById('eu-prev');
+  if(prev)prev.innerHTML=euPendFiles.map(f=>`<div class="fi-row mb2">${ficon(f.name)}<div class="fi-info"><div class="fi-name">${esc(f.name)}</div><div class="fi-meta">${fsz(f.size)}</div></div></div>`).join('');
+  const btn=document.getElementById('eu-btn');if(btn)btn.disabled=!euPendFiles.length;
+}
+
+function doExpUpload(){
+  if(!euPendFiles.length)return;
+  const recId=document.getElementById('eu-rid').value;
+  const expId=document.getElementById('eu-eid').value;
+  const dateStr=document.getElementById('eu-date').value;
+  const projId=(DB.find('records',recId)?.experiments||[]).find(e=>e.id===expId)?.projId||'';
+  const desc=document.getElementById('eu-desc').value;
+  const tags=document.getElementById('eu-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const btn=document.getElementById('eu-btn');btn.textContent='Uploading…';btn.disabled=true;
+  let done=0;
+  euPendFiles.forEach(file=>{
+    const fr=new FileReader();
+    fr.onload=e=>{
+      const stored=DB.push('files',{id:uid(),name:file.name,size:file.size,type:file.type,data:e.target.result,at:Date.now()});
+      DB.push('atts',{id:uid(),fileId:stored.id,name:file.name,size:file.size,fileType:file.type,date:dateStr,projId,expId,description:desc,tags,uploadedAt:Date.now()});
+      done++;
+      if(done===euPendFiles.length){
+        euPendFiles=[];
+        toast(`${done} file${done!==1?'s':''} uploaded!`,'ok');
+        closeELNUpload();
+        // refresh attachment list in sidebar
+        const attsEl=document.getElementById('eln-atts');
+        if(attsEl){
+          const newAtts=DB.list('atts').filter(a=>a.expId===expId);
+          attsEl.innerHTML=newAtts.length?newAtts.map(a=>elnAttRow(a)).join(''):'<p class="sm muted">No attachments yet.</p>';
+        }
+      }
+    };fr.readAsDataURL(file);
+  });
+}
+
+function closeELNUpload(){
+  document.getElementById('mc').innerHTML='';
+  // don't re-render full page — just close modal
+}
+
+function elnAttRow(a){
+  return`<div class="fi-row mb2">
+    ${ficon(a.name)}
+    <div class="fi-info"><div class="fi-name">${esc(a.name)}</div><div class="fi-meta">${fsz(a.size)}${a.description?' · '+esc(a.description):''}</div></div>
+    <div class="flex ic g2u">
+      ${a.fileId?`<button class="icon-btn" onclick="dlFile('${a.fileId}')" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>`:''}
+      <button class="icon-btn" onclick="delAtt('${a.id}')" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>
+    </div>
+  </div>`;
+}
+
+function elnPrint(recId,expId){
+  const rec=DB.find('records',recId);
+  const exp=rec&&(rec.experiments||[]).find(e=>e.id===expId);
+  if(!exp)return;
+  const c=cfg();const proj=DB.find('projects',exp.projId);
+  const editor=document.getElementById('eln-editor');
+  const content=editor?editor.innerHTML:(exp.elnDetail||elnDefaultContent(exp));
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>ELN — ${esc(exp.title||'')}</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:860px;margin:40px auto;padding:24px;color:#1e293b;line-height:1.7}
+    h1{color:#1d4ed8;font-size:22px;border-bottom:2px solid #1d4ed8;padding-bottom:8px;margin-bottom:4px}
+    h2{color:#374151;font-size:17px;margin-top:20px}h3{color:#4b5563;font-size:14px;margin-top:16px}
+    .meta{color:#6b7280;font-size:13px;margin-bottom:20px}
+    table{border-collapse:collapse;width:100%;margin:12px 0}
+    td,th{border:1px solid #cbd5e1;padding:7px 10px;text-align:left}th{background:#f1f5f9;font-weight:700}
+    img{max-width:100%;border-radius:6px;margin:8px 0}
+    pre{background:#f1f5f9;padding:12px;border-radius:6px;font-size:12px;overflow-x:auto}
+    hr{border:none;border-top:1px solid #e2e8f0;margin:16px 0}
+    a{color:#2563eb}
+    @media print{body{margin:0;padding:16px}}
+  </style></head><body>
+  <h1>${esc(exp.title||'Untitled Experiment')}</h1>
+  <div class="meta">Date: ${fd(rec.date)} &nbsp;|&nbsp; Researcher: ${esc(c.name)} &nbsp;|&nbsp; Lab: ${esc(c.lab)} ${proj?'&nbsp;|&nbsp; Project: '+esc(proj.name):''}</div>
+  ${content}
+  <hr style="margin-top:40px"><p style="color:#9ca3af;font-size:12px">Generated by LabDaily ELN · ${new Date().toLocaleString()}</p>
+  <script>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+// ══════════════════════════════
+//  PAGE: DAY-LEVEL ELN
+// ══════════════════════════════
+function renderDayELN(recId){
+  const rec=DB.find('records',recId);
+  if(!rec){pg('<p class="muted" style="padding:40px">Record not found.</p>');return;}
+  const cfg0=cfg();
+  const exps=rec.experiments||[];
+  const atts=DB.list('atts').filter(a=>a.date===rec.date&&!a.expId);
+  const detail=rec.elnDetail||dayElnDefault(rec,cfg0);
+
+  setTB('Daily ELN — '+fd(rec.date),`
+    <button class="btn btn-secondary btn-sm" onclick="go('today')">← Back</button>
+    <button class="btn btn-secondary btn-sm" onclick="dayElnPrint('${recId}')">⬇ Print / PDF</button>
+    <button class="btn btn-primary btn-sm" onclick="saveDayELN('${recId}')">💾 Save</button>
+  `);
+
+  pg(`
+    <div style="display:flex;gap:16px;align-items:flex-start">
+
+      <!-- ── MAIN EDITOR ── -->
+      <div style="flex:1;min-width:0">
+
+        <!-- Meta -->
+        <div class="card mb3" style="padding:11px 16px">
+          <div class="flex ic g4u" style="flex-wrap:wrap">
+            <div><span class="xs muted">Date</span> <span class="semi">${fd(rec.date)}</span></div>
+            <div><span class="xs muted">Researcher</span> <span class="semi">${esc(cfg0.name)}</span></div>
+            <div><span class="xs muted">Lab</span> <span class="semi">${esc(cfg0.lab)}</span></div>
+            <div style="margin-left:auto"><span id="day-save-st" class="xs muted">All changes saved</span></div>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="card mb2" style="padding:8px 10px">
+          <div class="flex ic" style="flex-wrap:wrap;gap:3px">
+            <select onchange="elnCmd('formatBlock',this.value);this.selectedIndex=0"
+              style="border:1px solid var(--border);border-radius:5px;padding:3px 6px;font-size:12px;height:28px;background:var(--surface)">
+              <option>Paragraph</option>
+              <option value="h1">Heading 1</option>
+              <option value="h2">Heading 2</option>
+              <option value="h3">Heading 3</option>
+              <option value="pre">Code Block</option>
+            </select>
+            <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+            ${[['bold','<b>B</b>','Bold'],['italic','<i>I</i>','Italic'],['underline','<u>U</u>','Underline'],['strikeThrough','<s>S</s>','Strike']]
+              .map(([cmd,lbl,tt])=>`<button class="eln-tb" onclick="dayElnCmd('${cmd}')" title="${tt}">${lbl}</button>`).join('')}
+            <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+            <button class="eln-tb" onclick="dayElnCmd('insertUnorderedList')" title="Bullet list">•≡</button>
+            <button class="eln-tb" onclick="dayElnCmd('insertOrderedList')" title="Numbered list">1.</button>
+            <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+            <button class="eln-tb" onclick="dayElnCmd('justifyLeft')" title="Left">⬅</button>
+            <button class="eln-tb" onclick="dayElnCmd('justifyCenter')" title="Center">☰</button>
+            <button class="eln-tb" onclick="dayElnCmd('justifyRight')" title="Right">➡</button>
+            <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+            <label class="eln-tb" title="Text colour">A<input type="color" onchange="dayElnCmd('foreColor',this.value)" style="width:0;height:0;opacity:0;position:absolute"></label>
+            <label class="eln-tb" title="Highlight" style="background:#fef08a">H<input type="color" value="#fef08a" onchange="dayElnCmd('hiliteColor',this.value)" style="width:0;height:0;opacity:0;position:absolute"></label>
+            <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+            <button class="eln-tb" onclick="dayElnTable()" title="Insert table">⊞ Table</button>
+            <button class="eln-tb" onclick="dayElnImage()" title="Insert image">🖼 Image</button>
+            <button class="eln-tb" onclick="dayElnLink()" title="Insert link">🔗</button>
+            <button class="eln-tb" onclick="dayElnCmd('insertHorizontalRule')" title="Divider">—</button>
+            <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+            <button class="eln-tb" onclick="dayElnCmd('undo')" title="Undo">↩</button>
+            <button class="eln-tb" onclick="dayElnCmd('redo')" title="Redo">↪</button>
+          </div>
+        </div>
+
+        <!-- Editor -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div id="day-eln-editor"
+            contenteditable="true"
+            spellcheck="true"
+            style="min-height:640px;padding:32px 36px;outline:none;font-size:14px;line-height:1.85;color:var(--text)"
+            oninput="dayElnAutoSave('${recId}')"
+          >${detail}</div>
+        </div>
+
+      </div>
+
+      <!-- ── SIDEBAR ── -->
+      <div style="width:270px;flex-shrink:0">
+
+        <!-- Quick summary fields -->
+        <div class="card mb3">
+          <div class="card-title mb3">Quick Fields</div>
+          <div class="fg"><label class="fl">Overall Summary</label>
+            <textarea class="ft" id="deln-sum" style="min-height:80px;font-size:12px">${esc(rec.summary||'')}</textarea></div>
+          <div class="fg"><label class="fl">Problems / Troubleshooting</label>
+            <textarea class="ft" id="deln-prob" style="min-height:60px;font-size:12px">${esc(rec.problems||'')}</textarea></div>
+          <div class="fg"><label class="fl">Next Steps</label>
+            <textarea class="ft" id="deln-next" style="min-height:60px;font-size:12px">${esc(rec.nextSteps||'')}</textarea></div>
+          <button class="btn btn-primary btn-sm w100" onclick="saveDayELN('${recId}')">Save</button>
+        </div>
+
+        <!-- Experiments index -->
+        ${exps.length?`<div class="card mb3">
+          <div class="card-title mb2">Experiments (${exps.length})</div>
+          ${exps.map(e=>{const pr=DB.find('projects',e.projId);return`
+            <div class="fi-row mb2" style="padding:7px 9px">
+              <div class="fi-info">
+                <div class="fi-name" style="font-size:12px">${esc(e.title||'Untitled')}</div>
+                ${pr?`<div class="fi-meta">${esc(pr.name)}</div>`:''}
+              </div>
+              <a href="#" onclick="go('eln','${recId}|${e.id}')" style="font-size:11px;color:var(--primary);white-space:nowrap;text-decoration:none;font-weight:600">Open →</a>
+            </div>`}).join('')}
+        </div>`:''}
+
+        <!-- Attachments -->
+        <div class="card">
+          <div class="ch" style="margin-bottom:10px">
+            <div class="card-title">📎 Attachments</div>
+            <button class="btn btn-secondary btn-sm" onclick="openDayUpload('${recId}','${rec.date}')">+ Add</button>
+          </div>
+          <div id="deln-atts">
+            ${atts.length?atts.map(a=>elnAttRow(a)).join(''):'<p class="sm muted">No attachments yet.</p>'}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `);
+
+  // apply editor styles (same as experiment ELN)
+  const ed=document.getElementById('day-eln-editor');
+  if(ed) ed.style.cssText+=';font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+}
+
+function dayElnDefault(rec,cfg0){
+  const exps=rec.experiments||[];
+  const expList=exps.map((e,i)=>{
+    const pr=DB.find('projects',e.projId);
+    return`<h3>${i+1}. ${esc(e.title||'Untitled')}${pr?' <span style="color:'+pr.color+';">['+esc(pr.name)+']</span>':''}</h3>
+<p><strong>Objective:</strong> ${esc(e.objective||'')}</p>
+<p><strong>Results:</strong> ${esc(e.results||'')}</p>
+<p><strong>Interpretation:</strong> ${esc(e.interpretation||'')}</p>
+<p></p>`;
+  }).join('');
+  return`<h1>Daily Lab Notebook — ${fd(rec.date)}</h1>
+<p><strong>Researcher:</strong> ${esc(cfg0.name)} &nbsp;|&nbsp; <strong>Lab:</strong> ${esc(cfg0.lab)} &nbsp;|&nbsp; <strong>PI:</strong> ${esc(cfg0.pi)}</p>
+<hr>
+<h2>Overall Summary</h2>
+<p>${esc(rec.summary||'')}</p>
+<h2>Experiments</h2>
+${expList||'<p>(No experiments recorded yet)</p>'}
+<h2>Key Results</h2>
+<p></p>
+<h2>Problems / Troubleshooting</h2>
+<p>${esc(rec.problems||'')}</p>
+<h2>Next Steps</h2>
+<p>${esc(rec.nextSteps||'')}</p>
+<h2>Notes</h2>
+<p></p>`;
+}
+
+function dayElnCmd(cmd,val){
+  document.getElementById('day-eln-editor')?.focus();
+  document.execCommand(cmd,false,val||null);
+}
+
+function dayElnTable(){
+  const rows=parseInt(prompt('Rows:','3')||'0');
+  const cols=parseInt(prompt('Columns:','4')||'0');
+  if(!rows||!cols)return;
+  let html=`<table style="border-collapse:collapse;width:100%;margin:12px 0"><tbody>`;
+  for(let r=0;r<rows;r++){
+    html+='<tr>';
+    for(let c=0;c<cols;c++){
+      if(r===0) html+=`<th style="border:1px solid #cbd5e1;padding:8px 10px;background:#f1f5f9;font-weight:700;text-align:left">Header ${c+1}</th>`;
+      else       html+=`<td style="border:1px solid #cbd5e1;padding:8px 10px;min-width:80px"> </td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table><p></p>';
+  document.getElementById('day-eln-editor')?.focus();
+  document.execCommand('insertHTML',false,html);
+}
+
+function dayElnImage(){
+  const div=document.createElement('div');
+  div.id='day-img-picker';
+  div.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;z-index:2000;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.2)';
+  div.innerHTML=`
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">Insert Image</div>
+    <label class="fl">Upload image file</label>
+    <input type="file" id="day-img-file" accept="image/*" style="font-size:13px;width:100%;margin-bottom:10px">
+    <div style="text-align:center;color:var(--text3);font-size:12px;margin:6px 0">— or —</div>
+    <label class="fl mt2">Image URL</label>
+    <input class="fi" id="day-img-url" placeholder="https://..." style="margin-bottom:14px">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('day-img-picker').remove()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="dayElnDoImage()">Insert</button>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+function dayElnDoImage(){
+  const fi=document.getElementById('day-img-file');
+  const ui=document.getElementById('day-img-url');
+  const pk=document.getElementById('day-img-picker');
+  if(fi?.files[0]){
+    const fr=new FileReader();
+    fr.onload=e=>{
+      document.getElementById('day-eln-editor')?.focus();
+      document.execCommand('insertHTML',false,`<img src="${e.target.result}" style="max-width:100%;border-radius:6px;margin:10px 0;display:block" alt="image"><p></p>`);
+      pk?.remove();
+    };fr.readAsDataURL(fi.files[0]);
+  } else if(ui?.value.trim()){
+    document.getElementById('day-eln-editor')?.focus();
+    document.execCommand('insertHTML',false,`<img src="${esc(ui.value.trim())}" style="max-width:100%;border-radius:6px;margin:10px 0;display:block" alt="image"><p></p>`);
+    pk?.remove();
+  } else alert('Select a file or enter a URL.');
+}
+
+function dayElnLink(){
+  const url=prompt('URL:','https://');if(!url)return;
+  const txt=prompt('Link text:','Link');if(!txt)return;
+  document.getElementById('day-eln-editor')?.focus();
+  document.execCommand('insertHTML',false,`<a href="${esc(url)}" target="_blank" style="color:var(--primary)">${esc(txt)}</a>`);
+}
+
+let dayElnTimer=null;
+function dayElnAutoSave(recId){
+  const st=document.getElementById('day-save-st');
+  if(st)st.textContent='Saving…';
+  clearTimeout(dayElnTimer);
+  dayElnTimer=setTimeout(()=>{
+    const ed=document.getElementById('day-eln-editor');
+    if(ed)DB.upd('records',recId,{elnDetail:ed.innerHTML,updatedAt:Date.now()});
+    if(st)st.textContent='Saved · '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  },1200);
+}
+
+function saveDayELN(recId){
+  const ed=document.getElementById('day-eln-editor');
+  if(ed)DB.upd('records',recId,{elnDetail:ed.innerHTML,updatedAt:Date.now()});
+  const sum=document.getElementById('deln-sum')?.value;
+  const prob=document.getElementById('deln-prob')?.value;
+  const next=document.getElementById('deln-next')?.value;
+  const patch={};
+  if(sum!==undefined)patch.summary=sum;
+  if(prob!==undefined)patch.problems=prob;
+  if(next!==undefined)patch.nextSteps=next;
+  DB.upd('records',recId,patch);
+  toast('Saved!','ok');
+}
+
+function openDayUpload(recId,dateStr){
+  modal(`
+    <div class="mh"><h2>Upload Attachments</h2><button class="icon-btn" onclick="closeDayUpload('${recId}','${dateStr}')">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="du-rid" value="${recId}">
+      <input type="hidden" id="du-date" value="${dateStr}">
+      <div class="dz" id="dudz" onclick="document.getElementById('dufinput').click()">
+        <div style="font-size:28px">📂</div>
+        <p><strong>Click to select</strong> or drag & drop</p>
+        <p style="font-size:12px;margin-top:4px">Word, Excel, PPT, PDF, Images, Prism, Video, ZIP…</p>
+        <input type="file" id="dufinput" multiple style="display:none" onchange="duHandle(this.files)">
+      </div>
+      <div id="du-prev" class="mt3"></div>
+      <div class="fg mt3"><label class="fl">Description</label><input class="fi" id="du-desc" placeholder="Brief description…"></div>
+      <div class="fg"><label class="fl">Tags (comma separated)</label><input class="fi" id="du-tags" placeholder="e.g. raw data, figure"></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-secondary" onclick="closeDayUpload('${recId}','${dateStr}')">Cancel</button>
+      <button class="btn btn-primary" id="du-btn" onclick="doDayUpload()" disabled>Upload</button>
+    </div>
+  `);
+  const dz=document.getElementById('dudz');
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');duHandle(e.dataTransfer.files)});
+}
+
+let duFiles=[];
+function duHandle(files){
+  duFiles=[...files];
+  const p=document.getElementById('du-prev');
+  if(p)p.innerHTML=duFiles.map(f=>`<div class="fi-row mb2">${ficon(f.name)}<div class="fi-info"><div class="fi-name">${esc(f.name)}</div><div class="fi-meta">${fsz(f.size)}</div></div></div>`).join('');
+  const b=document.getElementById('du-btn');if(b)b.disabled=!duFiles.length;
+}
+
+function doDayUpload(){
+  if(!duFiles.length)return;
+  const recId=document.getElementById('du-rid').value;
+  const dateStr=document.getElementById('du-date').value;
+  const desc=document.getElementById('du-desc').value;
+  const tags=document.getElementById('du-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const btn=document.getElementById('du-btn');btn.textContent='Uploading…';btn.disabled=true;
+  let done=0;
+  duFiles.forEach(file=>{
+    const fr=new FileReader();
+    fr.onload=e=>{
+      const stored=DB.push('files',{id:uid(),name:file.name,size:file.size,type:file.type,data:e.target.result,at:Date.now()});
+      DB.push('atts',{id:uid(),fileId:stored.id,name:file.name,size:file.size,fileType:file.type,date:dateStr,projId:'',description:desc,tags,uploadedAt:Date.now()});
+      done++;
+      if(done===duFiles.length){
+        duFiles=[];
+        toast(`${done} file${done!==1?'s':''} uploaded!`,'ok');
+        closeDayUpload(recId,dateStr);
+        // refresh sidebar attachment list
+        const el=document.getElementById('deln-atts');
+        if(el){
+          const newAtts=DB.list('atts').filter(a=>a.date===dateStr&&!a.expId);
+          el.innerHTML=newAtts.length?newAtts.map(a=>elnAttRow(a)).join(''):'<p class="sm muted">No attachments yet.</p>';
+        }
+      }
+    };fr.readAsDataURL(file);
+  });
+}
+
+function closeDayUpload(recId,dateStr){
+  document.getElementById('mc').innerHTML='';
+}
+
+function dayElnPrint(recId){
+  const rec=DB.find('records',recId);if(!rec)return;
+  const c=cfg();
+  const ed=document.getElementById('day-eln-editor');
+  const content=ed?ed.innerHTML:(rec.elnDetail||dayElnDefault(rec,c));
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Daily ELN — ${fd(rec.date)}</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:900px;margin:40px auto;padding:24px;color:#1e293b;line-height:1.8}
+    h1{color:#1d4ed8;font-size:22px;border-bottom:2px solid #1d4ed8;padding-bottom:8px}
+    h2{color:#374151;font-size:17px;margin-top:22px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}
+    h3{color:#4b5563;font-size:14px;margin-top:14px}
+    table{border-collapse:collapse;width:100%;margin:12px 0}
+    td,th{border:1px solid #cbd5e1;padding:7px 10px;text-align:left}
+    th{background:#f1f5f9;font-weight:700}
+    img{max-width:100%;border-radius:4px;margin:8px 0;display:block}
+    pre{background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:6px;font-size:12px}
+    hr{border:none;border-top:1px solid #e2e8f0;margin:16px 0}
+    a{color:#2563eb}p{margin:4px 0}
+    @media print{body{margin:0;padding:16px}}
+  </style></head><body>
+  ${content}
+  <hr style="margin-top:48px">
+  <p style="color:#9ca3af;font-size:12px">LabDaily ELN · ${esc(c.name)} · ${new Date().toLocaleString()}</p>
+  <script>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+// ══════════════════════════════
+//  PAGE: TODAY DETAILS (ELN)
+// ══════════════════════════════
+function renderTodayDetails(){
+  const td=today();
+  let rec=DB.list('records').find(r=>r.date===td);
+  const cfg0=cfg();
+
+  // Auto-create a blank record if none exists yet
+  if(!rec){
+    rec=DB.push('records',{id:uid(),date:td,summary:'',experiments:[],problems:'',nextSteps:'',piReviewed:false,createdAt:Date.now()});
+  }
+
+  const atts=DB.list('atts').filter(a=>a.date===td&&!a.expId);
+
+  setTB('Today Details — '+fd(td),`
+    <button class="btn btn-secondary btn-sm" onclick="go('today')">← Summary</button>
+    <button class="btn btn-secondary btn-sm" onclick="tdPrint('${rec.id}')">⬇ Print / PDF</button>
+    ${rec.id?`<button class="btn btn-danger btn-sm" onclick="deleteTodayDetails('${rec.id}')">🗑 Delete</button>`:''}
+    <button class="btn btn-primary btn-sm" onclick="tdSave('${rec.id}')">💾 Save</button>
+  `);
+
+  const detail=rec.elnDetail||tdDefault(rec,cfg0);
+
+  pg(`<div style="display:flex;gap:16px;align-items:flex-start">
+
+  <!-- ── EDITOR ── -->
+  <div style="flex:1;min-width:0">
+
+    <!-- Meta -->
+    <div class="card mb3" style="padding:10px 16px">
+      <div class="flex ic g4u" style="flex-wrap:wrap">
+        <span class="xs muted">📅 ${fd(td)}</span>
+        <span class="xs muted">👤 ${esc(cfg0.name)}</span>
+        <span class="xs muted">🏛 ${esc(cfg0.lab)}</span>
+        <span id="td-save-st" class="xs muted" style="margin-left:auto">All changes saved</span>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="card mb2" style="padding:7px 10px">
+      <div class="flex ic" style="flex-wrap:wrap;gap:3px">
+
+        <!-- Paragraph style -->
+        <select class="eln-tb" style="padding:0 6px;width:auto;border:1px solid var(--border)" onchange="tdCmd('formatBlock',this.value);this.selectedIndex=0">
+          <option>Style</option>
+          <option value="p">Paragraph</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+          <option value="pre">Code</option>
+          <option value="blockquote">Quote</option>
+        </select>
+
+        <!-- Font size -->
+        <select class="eln-tb" style="padding:0 4px;width:auto;border:1px solid var(--border)" onchange="tdCmd('fontSize',this.value);this.selectedIndex=0">
+          <option>Size</option>
+          <option value="1">8pt</option>
+          <option value="2">10pt</option>
+          <option value="3">12pt</option>
+          <option value="4">14pt</option>
+          <option value="5">18pt</option>
+          <option value="6">24pt</option>
+          <option value="7">36pt</option>
+        </select>
+
+        <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+
+        <!-- B I U S -->
+        <button class="eln-tb" onclick="tdCmd('bold')" title="Bold"><b>B</b></button>
+        <button class="eln-tb" onclick="tdCmd('italic')" title="Italic"><i>I</i></button>
+        <button class="eln-tb" onclick="tdCmd('underline')" title="Underline"><u>U</u></button>
+        <button class="eln-tb" onclick="tdCmd('strikeThrough')" title="Strikethrough"><s>S</s></button>
+
+        <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+
+        <!-- Lists -->
+        <button class="eln-tb" onclick="tdCmd('insertUnorderedList')" title="Bullet list">• ≡</button>
+        <button class="eln-tb" onclick="tdCmd('insertOrderedList')" title="Numbered list">1. ≡</button>
+
+        <!-- Indent -->
+        <button class="eln-tb" onclick="tdCmd('indent')" title="Indent">→</button>
+        <button class="eln-tb" onclick="tdCmd('outdent')" title="Outdent">←</button>
+
+        <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+
+        <!-- Align -->
+        <button class="eln-tb" onclick="tdCmd('justifyLeft')" title="Left">⬅</button>
+        <button class="eln-tb" onclick="tdCmd('justifyCenter')" title="Center">☰</button>
+        <button class="eln-tb" onclick="tdCmd('justifyRight')" title="Right">➡</button>
+        <button class="eln-tb" onclick="tdCmd('justifyFull')" title="Justify">⇔</button>
+
+        <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+
+        <!-- Colour & Highlight -->
+        <label class="eln-tb" title="Text colour" style="gap:2px;cursor:pointer">
+          <span style="border-bottom:3px solid #e11d48">A</span>
+          <input type="color" value="#e11d48" onchange="tdCmd('foreColor',this.value)" style="width:0;height:0;opacity:0;position:absolute">
+        </label>
+        <label class="eln-tb" title="Highlight colour" style="gap:2px;cursor:pointer;background:#fef08a">
+          <span>H</span>
+          <input type="color" value="#fef08a" onchange="tdCmd('hiliteColor',this.value)" style="width:0;height:0;opacity:0;position:absolute">
+        </label>
+
+        <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+
+        <!-- Table / Image / Link / HR -->
+        <button class="eln-tb" onclick="tdInsertTable()" title="Insert table" style="gap:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>Table
+        </button>
+        <button class="eln-tb" onclick="tdInsertImage()" title="Insert image" style="gap:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Image
+        </button>
+        <button class="eln-tb" onclick="tdInsertLink()" title="Insert link" style="gap:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Link
+        </button>
+        <button class="eln-tb" onclick="tdCmd('insertHorizontalRule')" title="Horizontal rule">— HR</button>
+
+        <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+
+        <!-- Undo / Redo -->
+        <button class="eln-tb" onclick="tdCmd('undo')" title="Undo">↩ Undo</button>
+        <button class="eln-tb" onclick="tdCmd('redo')" title="Redo">↪ Redo</button>
+
+        <div style="width:1px;height:22px;background:var(--border);margin:0 2px"></div>
+
+        <!-- Import Word / Scan -->
+        <button class="eln-tb" onclick="tdImportClick('${rec.id}')" title="Import Word doc or photo/scan" style="gap:4px;background:var(--primary);color:#fff;border-radius:6px;padding:3px 10px">
+          📥 Import
+        </button>
+        <input type="file" id="td-import-inp" accept=".docx,image/*" style="display:none" onchange="tdHandleImport(this,'${rec.id}')">
+
+      </div>
+    </div>
+
+    <!-- Editor area -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div id="td-editor"
+        contenteditable="true"
+        spellcheck="true"
+        oninput="tdAutoSave('${rec.id}')"
+        style="min-height:680px;padding:36px 40px;outline:none;font-size:14px;line-height:1.85;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+      >${detail}</div>
+    </div>
+
+  </div>
+
+  <!-- ── SIDEBAR ── -->
+  <div style="width:260px;flex-shrink:0">
+
+    <!-- Projects panel -->
+    <div class="card mb3" id="td-proj-panel">
+      <div class="ch" style="margin-bottom:10px">
+        <div class="card-title">📁 Projects</div>
+        <button class="btn btn-secondary btn-sm" onclick="tdQuickNewProj('${rec.id}')" style="font-size:11px">＋ New</button>
+      </div>
+      <div id="td-proj-list" style="display:flex;flex-direction:column;gap:5px">
+        ${(()=>{
+          const allProj=DB.list('projects');
+          const selIds=rec.projIds||[];
+          if(!allProj.length) return '<p class="sm muted">No projects yet.</p>';
+          return allProj.map(p=>`
+            <label style="display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:8px;cursor:pointer;border:2px solid ${selIds.includes(p.id)?p.color:'var(--border)'};background:${selIds.includes(p.id)?p.color+'15':'var(--surface2)'};transition:all .15s">
+              <input type="checkbox" data-projid="${p.id}" ${selIds.includes(p.id)?'checked':''} style="accent-color:${p.color}" onchange="tdToggleProj('${rec.id}',this)">
+              <span style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></span>
+              <span style="font-size:12px;font-weight:500;color:${selIds.includes(p.id)?p.color:'var(--text2)'}">${esc(p.name)}</span>
+            </label>`).join('');
+        })()}
+      </div>
+    </div>
+
+    <!-- Attachments -->
+    <div class="card">
+      <div class="ch" style="margin-bottom:10px">
+        <div class="card-title">📎 Attachments</div>
+        <button class="btn btn-secondary btn-sm" onclick="tdOpenUpload('${rec.id}','${td}')">+ Add</button>
+      </div>
+      <div id="td-att-list">
+        ${atts.length
+          ? atts.map(a=>fiRow(a)).join('')
+          : '<p class="sm muted">No attachments yet.</p>'
+        }
+      </div>
+    </div>
+
+  </div>
+</div>`);
+}
+
+// ── Toggle project link from Today Details sidebar ──
+function tdToggleProj(recId,cb){
+  if(!recId)return;
+  const rec=DB.find('records',recId);
+  if(!rec)return;
+  const pid=cb.dataset.projid;
+  let ids=rec.projIds||[];
+  if(cb.checked){if(!ids.includes(pid))ids=[...ids,pid]}
+  else{ids=ids.filter(x=>x!==pid)}
+  DB.upd('records',recId,{projIds:ids});
+  // Update label styling
+  const label=cb.closest('label');
+  const proj=DB.find('projects',pid);
+  if(label&&proj){
+    label.style.borderColor=cb.checked?proj.color:'var(--border)';
+    label.style.background=cb.checked?proj.color+'15':'var(--surface2)';
+    label.querySelector('span:last-child').style.color=cb.checked?proj.color:'var(--text2)';
+  }
+  toast(cb.checked?'Project linked':'Project unlinked');
+}
+
+// ── Quick create project from Today Details sidebar ──
+function tdQuickNewProj(recId){
+  const name=prompt('New project name:');
+  if(!name||!name.trim())return;
+  const colors=['#2563eb','#16a34a','#9333ea','#ea580c','#0891b2','#be185d'];
+  const color=colors[DB.list('projects').length%colors.length];
+  const p=DB.push('projects',{id:uid(),name:name.trim(),category:'General',color,status:'active',tags:[],description:'',createdAt:Date.now()});
+  refreshProjSubnav();
+  // Add to list and auto-link
+  const list=document.getElementById('td-proj-list');
+  if(list){
+    list.querySelector('.sm.muted')?.remove();
+    const label=document.createElement('label');
+    label.style.cssText=`display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:8px;cursor:pointer;border:2px solid ${color};background:${color}15;transition:all .15s`;
+    label.innerHTML=`<input type="checkbox" data-projid="${p.id}" checked style="accent-color:${color}" onchange="tdToggleProj('${recId}',this)"><span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span><span style="font-size:12px;font-weight:500;color:${color}">${esc(p.name)}</span>`;
+    list.appendChild(label);
+    // Auto-link
+    if(recId){const rec=DB.find('records',recId);if(rec){const ids=rec.projIds||[];if(!ids.includes(p.id))DB.upd('records',recId,{projIds:[...ids,p.id]});}}
+  }
+  toast('Project created & linked!','t-ok');
+}
+
+// ── Delete record from Today Details topbar ──
+function deleteTodayDetails(recId){
+  if(!confirm('Delete this entire daily record? This cannot be undone.'))return;
+  DB.del('records',recId);
+  toast('Record deleted');
+  go('today');
+}
+
+// ── Editor commands ──
+function tdCmd(cmd,val){
+  document.getElementById('td-editor')?.focus();
+  document.execCommand(cmd,false,val||null);
+}
+
+// ── Insert Table ──
+function tdInsertTable(){
+  const rows=parseInt(prompt('Number of rows (including header):','4')||'0');
+  const cols=parseInt(prompt('Number of columns:','3')||'0');
+  if(!rows||!cols)return;
+  let html='<table><tbody>';
+  for(let r=0;r<rows;r++){
+    html+='<tr>';
+    for(let c=0;c<cols;c++){
+      html+=r===0
+        ?`<th>Column ${c+1}</th>`
+        :`<td>&nbsp;</td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table><p></p>';
+  document.getElementById('td-editor')?.focus();
+  document.execCommand('insertHTML',false,html);
+}
+
+// ── Insert Image ──
+function tdInsertImage(){
+  // Build a small inline popup
+  const existing=document.getElementById('td-img-popup');
+  if(existing){existing.remove();return;}
+  const popup=document.createElement('div');
+  popup.id='td-img-popup';
+  popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;z-index:3000;width:360px;box-shadow:0 20px 60px rgba(0,0,0,.25)';
+  popup.innerHTML=`
+    <div style="font-size:15px;font-weight:700;margin-bottom:14px">🖼 Insert Image</div>
+    <div class="fg">
+      <label class="fl">Upload image file</label>
+      <input type="file" id="td-img-file" accept="image/*" style="font-size:13px;width:100%">
+    </div>
+    <div style="text-align:center;color:var(--text3);font-size:12px;margin:6px 0">— or paste a URL —</div>
+    <div class="fg">
+      <label class="fl">Image URL</label>
+      <input class="fi" id="td-img-url" placeholder="https://...">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('td-img-popup').remove()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="tdDoInsertImage()">Insert</button>
+    </div>`;
+  document.body.appendChild(popup);
+}
+
+function tdDoInsertImage(){
+  const fi=document.getElementById('td-img-file');
+  const ui=document.getElementById('td-img-url');
+  const popup=document.getElementById('td-img-popup');
+  if(fi?.files[0]){
+    const fr=new FileReader();
+    fr.onload=e=>{
+      document.getElementById('td-editor')?.focus();
+      document.execCommand('insertHTML',false,
+        `<img src="${e.target.result}" style="max-width:100%;border-radius:8px;margin:10px 0;display:block" alt="image"><p></p>`);
+      popup?.remove();
+    };
+    fr.readAsDataURL(fi.files[0]);
+  } else if(ui?.value.trim()){
+    document.getElementById('td-editor')?.focus();
+    document.execCommand('insertHTML',false,
+      `<img src="${esc(ui.value.trim())}" style="max-width:100%;border-radius:8px;margin:10px 0;display:block" alt="image"><p></p>`);
+    popup?.remove();
+  } else {
+    alert('Please select a file or enter an image URL.');
+  }
+}
+
+// ── Insert Link ──
+function tdInsertLink(){
+  const url=prompt('Enter URL:','https://');
+  if(!url)return;
+  const text=prompt('Link display text:','Link');
+  if(!text)return;
+  document.getElementById('td-editor')?.focus();
+  document.execCommand('insertHTML',false,`<a href="${esc(url)}" target="_blank">${esc(text)}</a>`);
+}
+
+// ── Auto-save ──
+let _tdTimer=null;
+function tdAutoSave(recId){
+  const st=document.getElementById('td-save-st');
+  if(st)st.textContent='Saving…';
+  clearTimeout(_tdTimer);
+  _tdTimer=setTimeout(()=>{
+    const ed=document.getElementById('td-editor');
+    if(ed)DB.upd('records',recId,{elnDetail:ed.innerHTML,updatedAt:Date.now()});
+    if(st)st.textContent='Saved · '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  },1000);
+}
+
+function tdSave(recId){
+  const ed=document.getElementById('td-editor');
+  if(ed)DB.upd('records',recId,{elnDetail:ed.innerHTML,updatedAt:Date.now()});
+  toast('Saved!','t-ok');
+}
+
+// ── Upload for Today Details ──
+let _tdFiles=[];
+function tdOpenUpload(recId,dateStr){
+  const projs=DB.list('projects');
+  modal(`
+    <div class="mh"><h2>📎 Upload Attachments</h2><button class="icon-btn" onclick="document.getElementById('mc').innerHTML=''">✕</button></div>
+    <div class="mb">
+      <div class="dz" id="td-dz" onclick="document.getElementById('td-fi').click()">
+        <div style="font-size:30px;margin-bottom:6px">📂</div>
+        <p><strong>Click to select files</strong> or drag &amp; drop</p>
+        <p style="font-size:12px;margin-top:4px">Word · Excel · PPT · PDF · Images · Prism · Video · ZIP · Any file</p>
+        <input type="file" id="td-fi" multiple style="display:none" onchange="tdHandleFiles(this.files)">
+      </div>
+      <div id="td-file-prev" class="mt3"></div>
+      <div class="fr mt3">
+        <div class="fg"><label class="fl">Project (optional)</label>
+          <select class="fs" id="td-att-proj">
+            <option value="">— None —</option>
+            ${projs.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Description</label>
+          <input class="fi" id="td-att-desc" placeholder="What are these files?">
+        </div>
+      </div>
+      <div class="fg"><label class="fl">Tags (comma separated)</label>
+        <input class="fi" id="td-att-tags" placeholder="e.g. raw data, figure, WB">
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-secondary" onclick="document.getElementById('mc').innerHTML=''">Cancel</button>
+      <button class="btn btn-primary" id="td-up-btn" onclick="tdDoUpload('${recId}','${dateStr}')" disabled>Upload</button>
+    </div>
+  `);
+  // Drag-and-drop
+  const dz=document.getElementById('td-dz');
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');tdHandleFiles(e.dataTransfer.files)});
+}
+
+function tdHandleFiles(files){
+  _tdFiles=[...files];
+  const prev=document.getElementById('td-file-prev');
+  if(prev)prev.innerHTML=_tdFiles.map(f=>`
+    <div class="fi-row mb2">${ficon(f.name)}
+      <div class="fi-info"><div class="fi-name">${esc(f.name)}</div><div class="fi-meta">${fsz(f.size)}</div></div>
+    </div>`).join('');
+  const btn=document.getElementById('td-up-btn');
+  if(btn)btn.disabled=!_tdFiles.length;
+}
+
+function tdDoUpload(recId,dateStr){
+  if(!_tdFiles.length)return;
+  const projId=document.getElementById('td-att-proj')?.value||'';
+  const desc=document.getElementById('td-att-desc')?.value||'';
+  const tags=(document.getElementById('td-att-tags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+  const btn=document.getElementById('td-up-btn');
+  if(btn){btn.textContent='Uploading…';btn.disabled=true;}
+  let done=0;
+  _tdFiles.forEach(file=>{
+    const fr=new FileReader();
+    fr.onload=e=>{
+      const stored=DB.push('files',{id:uid(),name:file.name,size:file.size,type:file.type,data:e.target.result,at:Date.now()});
+      DB.push('atts',{id:uid(),fileId:stored.id,name:file.name,size:file.size,fileType:file.type,
+        date:dateStr,projId,description:desc,tags,uploadedAt:Date.now()});
+      done++;
+      if(done===_tdFiles.length){
+        _tdFiles=[];
+        document.getElementById('mc').innerHTML='';
+        toast(`${done} file${done!==1?'s':''} uploaded!`,'t-ok');
+        // Refresh attachment list
+        const el=document.getElementById('td-att-list');
+        if(el){
+          const newAtts=DB.list('atts').filter(a=>a.date===dateStr&&!a.expId);
+          el.innerHTML=newAtts.length?newAtts.map(a=>fiRow(a)).join(''):'<p class="sm muted">No attachments yet.</p>';
+        }
+      }
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+// ── Default content ──
+function tdDefault(rec,cfg0){
+  const exps=rec.experiments||[];
+  return`<h1>Lab Notebook — ${fd(rec.date)}</h1>
+<p><strong>Researcher:</strong> ${esc(cfg0.name)} &nbsp;&nbsp; <strong>Lab:</strong> ${esc(cfg0.lab)} &nbsp;&nbsp; <strong>PI:</strong> ${esc(cfg0.pi)}</p>
+<hr>
+<h2>Summary</h2>
+<p>${esc(rec.summary||'')}</p>
+<h2>Experiments</h2>
+${exps.map((e,i)=>{
+  const pr=DB.find('projects',e.projId);
+  return`<h3>${i+1}. ${esc(e.title||'Untitled')}${pr?` <span style="color:${pr.color}">[${esc(pr.name)}]</span>`:''}</h3>
+<p><strong>Objective:</strong> ${esc(e.objective||'')}</p>
+<p><strong>Results:</strong> ${esc(e.results||'')}</p>
+<p></p>`;}).join('')||'<p></p>'}
+<h2>Key Results &amp; Figures</h2>
+<p></p>
+<h2>Problems / Troubleshooting</h2>
+<p>${esc(rec.problems||'')}</p>
+<h2>Next Steps</h2>
+<p>${esc(rec.nextSteps||'')}</p>
+<h2>Notes</h2>
+<p></p>`;
+}
+
+// ── Import Word / Image ──
+function tdImportClick(recId){
+  document.getElementById('td-import-inp').click();
+}
+
+function tdHandleImport(inp,recId){
+  const file=inp.files[0];
+  if(!file)return;
+  inp.value='';
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='docx'){
+    tdImportDocx(file,recId);
+  } else if(file.type.startsWith('image/')){
+    tdImportImage(file,recId);
+  } else {
+    alert('Supported formats: .docx, or image files (jpg, png, etc.)');
+  }
+}
+
+function tdImportDocx(file,recId){
+  // Load mammoth.js from CDN on demand
+  if(window.mammoth){_tdDocxConvert(file,recId);return;}
+  toast('Loading Word converter…');
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+  s.onload=()=>_tdDocxConvert(file,recId);
+  s.onerror=()=>alert('Could not load Word converter. Check your internet connection.');
+  document.head.appendChild(s);
+}
+
+function _tdDocxConvert(file,recId){
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try{
+      const result=await mammoth.convertToHtml({arrayBuffer:e.target.result});
+      const html=result.value;
+      const text=html.replace(/<[^>]+>/g,' ');
+      _tdInsertImported(html,text,file.name,recId);
+    }catch(err){
+      alert('Could not parse Word file: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function tdImportImage(file,recId){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const src=e.target.result;
+    const html=`<p><img src="${src}" style="max-width:100%;border-radius:6px;margin:8px 0"></p><p></p>`;
+    _tdInsertImported(html,'',file.name,recId);
+  };
+  reader.readAsDataURL(file);
+}
+
+function _tdInsertImported(html,plainText,filename,recId){
+  const editor=document.getElementById('td-editor');
+  if(!editor)return;
+
+  // Auto-match projects by keyword
+  const projects=DB.list('projects');
+  const matched=projects.filter(p=>plainText.toLowerCase().includes(p.name.toLowerCase()));
+
+  // Wrap with a labeled section
+  const label=`<hr><p><strong>📥 Imported: ${esc(filename)}</strong></p>`;
+  editor.focus();
+  document.execCommand('insertHTML',false,label+html);
+
+  // Auto-link matched projects
+  if(matched.length&&recId){
+    const rec=DB.find('records',recId);
+    if(rec){
+      const existing=rec.projIds||[];
+      const merged=[...new Set([...existing,...matched.map(p=>p.id)])];
+      DB.upd('records',recId,{projIds:merged});
+      // Update sidebar checkboxes
+      matched.forEach(p=>{
+        const cb=document.querySelector(`#td-proj-list input[data-projid="${p.id}"]`);
+        if(cb&&!cb.checked){
+          cb.checked=true;
+          const label=cb.closest('label');
+          if(label){
+            label.style.borderColor=p.color;
+            label.style.background=p.color+'15';
+            const span=label.querySelector('span:last-child');
+            if(span)span.style.color=p.color;
+          }
+        }
+      });
+      toast(`Imported & linked to: ${matched.map(p=>p.name).join(', ')}`, 't-ok');
+    }
+  } else {
+    toast('Imported — no project auto-matched','t-info');
+  }
+
+  // Trigger auto-save
+  tdAutoSave(recId);
+}
+
+// ── Print ──
+function tdPrint(recId){
+  tdSave(recId);
+  const rec=DB.find('records',recId);
+  const c=cfg();
+  const content=document.getElementById('td-editor')?.innerHTML||rec?.elnDetail||'';
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Lab Notebook ${fd(rec?.date)}</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:900px;margin:40px auto;padding:24px;color:#1e293b;line-height:1.8}
+    h1{color:#1d4ed8;font-size:22px;border-bottom:2px solid #1d4ed8;padding-bottom:8px;margin-bottom:6px}
+    h2{font-size:17px;color:#374151;margin-top:22px;border-bottom:1px solid #e5e7eb;padding-bottom:3px}
+    h3{font-size:14px;color:#4b5563;margin-top:14px}
+    p{margin:4px 0;line-height:1.8}
+    table{border-collapse:collapse;width:100%;margin:14px 0}
+    td,th{border:1px solid #cbd5e1;padding:8px 11px;text-align:left}
+    th{background:#f1f5f9;font-weight:700}
+    img{max-width:100%;border-radius:6px;margin:10px 0;display:block}
+    ul,ol{padding-left:22px;margin:6px 0}li{margin:3px 0}
+    pre{background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:6px;font-size:12px}
+    hr{border:none;border-top:1px solid #e5e7eb;margin:18px 0}
+    a{color:#2563eb}
+    @media print{body{margin:0;padding:16px}}
+  </style></head><body>
+  ${content}
+  <hr style="margin-top:48px">
+  <p style="color:#9ca3af;font-size:12px">LabDaily · ${esc(c.name)} · ${esc(c.lab)} · ${new Date().toLocaleString()}</p>
+  <script>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+// ══════════════════════════════
+//  RENDER MAP
+// ══════════════════════════════
+const RENDER={
+  today:renderToday,projects:renderProjects,records:renderRecords,
+  archive:renderArchive,templates:renderTemplates,search:renderSearch,
+  pi:renderPI,ai:renderAI,settings:renderSettings,
+  eln:renderELN,dayeln:renderDayELN,
+  todaydetails:renderTodayDetails
+};
+
+// ══════════════════════════════
+//  INIT
+// ══════════════════════════════
+(function init(){
+  const c=cfg();
+  document.getElementById('uname').textContent=c.name||'Researcher';
+  document.getElementById('uavatar').textContent=(c.name||'R')[0].toUpperCase();
+  document.getElementById('urole').textContent=c.role||'Lab Member';
+
+  // Seed demo projects if empty
+  if(!DB.list('projects').length){
+    [{name:'EV / Exosome',category:'EV / Exosome',color:'#2563eb',tags:['EV','CD9','exosome','HeLa'],description:'Investigating extracellular vesicle biology and EV-mediated signaling pathways.'},
+     {name:'Integrin',category:'Cell Biology',color:'#16a34a',tags:['integrin','adhesion','ECM'],description:'Integrin signaling and cell-matrix interaction studies.'},
+     {name:'PLA Assay',category:'Immunofluorescence / PLA',color:'#9333ea',tags:['PLA','proximity ligation','IF'],description:'Proximity ligation assay for protein-protein interaction detection.'},
+     {name:'HiBiT / SLEEQ',category:'HiBiT / SLEEQ',color:'#ea580c',tags:['HiBiT','SLEEQ','luciferase','bioluminescence'],description:'HiBiT-based SLEEQ assay for quantitative protein analysis.'},
+     {name:'Western Blot',category:'Western Blot',color:'#0891b2',tags:['WB','Western blot','antibody'],description:'Protein expression analysis by Western blotting.'}
+    ].forEach(p=>DB.push('projects',{...p,id:uid(),status:'active',createdAt:Date.now()}));
+  }
+
+  refreshProjSubnav();
+  go('today');
+})();
+</script>
+</body>
+</html>

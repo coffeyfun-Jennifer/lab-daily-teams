@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ELN Detail</title>
+<style>
+:root{--bg:#f0f4f8;--s:#fff;--s2:#f8fafc;--bd:#e2e8f0;--pr:#2563eb;--pd:#1d4ed8;--pl:#eff6ff;--tx:#0f172a;--t2:#475569;--t3:#94a3b8;--r:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.6}
+.topbar{background:var(--s);border-bottom:1px solid var(--bd);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 1px 0 var(--bd)}
+.topbar-title{font-size:15px;font-weight:700}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.wrap{display:flex;gap:16px;padding:20px;max-width:1400px;margin:0 auto}
+/* Editor column */
+.editor-col{flex:1;min-width:0}
+/* Sidebar */
+.sidebar{width:260px;flex-shrink:0}
+/* Card */
+.card{background:var(--s);border:1px solid var(--bd);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.card-title{font-size:13px;font-weight:700;margin-bottom:12px}
+/* Meta bar */
+.meta-bar{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.meta-item{font-size:12px;color:var(--t2)}
+.meta-item span{font-weight:600;color:var(--tx)}
+/* Toolbar */
+.toolbar{background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:7px 10px;margin-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;gap:3px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.tb{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border:1px solid transparent;border-radius:5px;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--t2);transition:all .1s}
+.tb:hover{background:var(--s2);border-color:var(--bd);color:var(--tx)}
+.tb-sep{width:1px;height:22px;background:var(--bd);margin:0 2px;flex-shrink:0}
+.tb-sel{border:1px solid var(--bd);border-radius:5px;padding:3px 6px;font-size:12px;height:28px;background:var(--s);cursor:pointer}
+/* Editor */
+.editor-box{background:var(--s);border:1px solid var(--bd);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden}
+#editor{min-height:640px;padding:36px 40px;outline:none;font-size:14px;line-height:1.85;color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+#editor:focus{outline:none}
+#editor h1{font-size:22px;font-weight:800;color:var(--tx);margin:16px 0 6px;border-bottom:2px solid var(--pr);padding-bottom:6px}
+#editor h2{font-size:17px;font-weight:700;color:var(--tx);margin:14px 0 5px;border-bottom:1px solid var(--bd);padding-bottom:3px}
+#editor h3{font-size:14px;font-weight:700;color:var(--t2);margin:12px 0 4px}
+#editor p{margin:3px 0;color:var(--t2)}
+#editor ul,#editor ol{padding-left:22px;margin:6px 0;color:var(--t2)}
+#editor li{margin:2px 0}
+#editor table{border-collapse:collapse;width:100%;margin:14px 0}
+#editor td,#editor th{border:1px solid var(--bd);padding:8px 11px;text-align:left;font-size:13px}
+#editor th{background:var(--s2);font-weight:700}
+#editor img{max-width:100%;border-radius:8px;margin:10px 0;display:block}
+#editor a{color:var(--pr);text-decoration:underline}
+#editor hr{border:none;border-top:2px solid var(--bd);margin:18px 0}
+#editor pre{background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:12px;font-family:monospace;font-size:12px;overflow-x:auto;margin:8px 0}
+#editor blockquote{border-left:3px solid var(--pr);padding-left:14px;color:var(--t3);margin:8px 0;font-style:italic}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .12s}
+.btn-pr{background:var(--pr);color:#fff}.btn-pr:hover{background:var(--pd)}
+.btn-sec{background:var(--s);color:var(--t2);border-color:var(--bd)}.btn-sec:hover{background:var(--s2)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-success{background:#16a34a;color:#fff}
+.icon-btn{padding:5px;border-radius:var(--r);background:var(--s2);border:1px solid var(--bd);cursor:pointer;display:inline-flex;color:var(--t2)}
+.icon-btn:hover{background:var(--bd)}
+/* Forms */
+.fg{margin-bottom:12px}
+.fl{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--t2);margin-bottom:4px}
+.fi,.fs,.ft{width:100%;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px;color:var(--tx);background:var(--s);font-family:inherit}
+.fi:focus,.fs:focus,.ft:focus{outline:none;border-color:var(--pr);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.ft{resize:vertical;min-height:60px}
+/* File rows */
+.fi-row{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r);margin-bottom:6px;background:var(--s)}
+.ficon{width:30px;height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.fi-info{flex:1;min-width:0}
+.fi-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fi-meta{font-size:11px;color:var(--t3)}
+/* Dropzone */
+.dz{border:2px dashed var(--bd);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .15s}
+.dz:hover,.dz.over{border-color:var(--pr);background:var(--pl)}
+.dz p{color:var(--t3);font-size:13px}
+/* Tags */
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500;background:#dbeafe;color:#1e40af}
+/* Overlay */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.popup{background:#fff;border-radius:12px;width:100%;max-width:360px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.popup h3{font-size:15px;font-weight:700;margin-bottom:14px}
+/* Status */
+.save-st{font-size:11px;color:var(--t3);margin-left:auto}
+/* Utils */
+.flex{display:flex}.ic{align-items:center}.jb{justify-content:space-between}.g2{gap:8px}.g3{gap:12px}
+.sm{font-size:12px}.muted{color:var(--t3)}.bold{font-weight:700}.w100{width:100%}
+.mt2{margin-top:8px}.mt3{margin-top:12px}.mb2{margin-bottom:8px}.mb3{margin-bottom:12px}
+/* Toast */
+.toasts{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:7px}
+.toast{background:#1e293b;color:#f1f5f9;padding:10px 16px;border-radius:var(--r);font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.2);animation:tin .2s}
+.t-ok{background:#15803d}
+@keyframes tin{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="flex ic g2">
+    <button class="btn btn-sec btn-sm" onclick="history.back()">← Back</button>
+    <div class="topbar-title" id="page-title">Daily ELN</div>
+  </div>
+  <div class="topbar-actions">
+    <span class="save-st" id="save-st">All changes saved</span>
+    <button class="btn btn-sec btn-sm" onclick="doPrint()">⬇ Print / PDF</button>
+    <button class="btn btn-pr btn-sm" onclick="saveAll()">💾 Save</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="wrap">
+
+  <!-- EDITOR COLUMN -->
+  <div class="editor-col">
+
+    <!-- Meta -->
+    <div class="card" style="padding:11px 16px;margin-bottom:12px">
+      <div class="meta-bar" id="meta-bar">
+        <div class="meta-item">Date <span id="m-date">—</span></div>
+        <div class="meta-item">Researcher <span id="m-name">—</span></div>
+        <div class="meta-item">Lab <span id="m-lab">—</span></div>
+        <div class="meta-item" id="m-proj-wrap" style="display:none">Project <span id="m-proj" style="font-weight:600">—</span></div>
+        <div class="flex ic g2" style="margin-left:auto" id="m-tags"></div>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <select class="tb-sel" onchange="cmd('formatBlock',this.value);this.selectedIndex=0">
+        <option>Paragraph</option>
+        <option value="h1">Heading 1</option>
+        <option value="h2">Heading 2</option>
+        <option value="h3">Heading 3</option>
+        <option value="pre">Code Block</option>
+        <option value="blockquote">Quote</option>
+      </select>
+      <div class="tb-sep"></div>
+      <button class="tb" onclick="cmd('bold')" title="Bold"><b>B</b></button>
+      <button class="tb" onclick="cmd('italic')" title="Italic"><i>I</i></button>
+      <button class="tb" onclick="cmd('underline')" title="Underline"><u>U</u></button>
+      <button class="tb" onclick="cmd('strikeThrough')" title="Strike"><s>S</s></button>
+      <div class="tb-sep"></div>
+      <button class="tb" onclick="cmd('insertUnorderedList')" title="Bullet list">• ≡</button>
+      <button class="tb" onclick="cmd('insertOrderedList')" title="Numbered list">1. ≡</button>
+      <div class="tb-sep"></div>
+      <button class="tb" onclick="cmd('justifyLeft')" title="Left">⬅</button>
+      <button class="tb" onclick="cmd('justifyCenter')" title="Center">☰</button>
+      <button class="tb" onclick="cmd('justifyRight')" title="Right">➡</button>
+      <div class="tb-sep"></div>
+      <label class="tb" title="Text colour" style="position:relative;overflow:hidden">
+        <span>A</span>
+        <input type="color" onchange="cmd('foreColor',this.value)" style="position:absolute;opacity:0;width:0;height:0">
+      </label>
+      <label class="tb" title="Highlight" style="position:relative;overflow:hidden;background:#fef08a">
+        <span>H</span>
+        <input type="color" value="#fef08a" onchange="cmd('hiliteColor',this.value)" style="position:absolute;opacity:0;width:0;height:0">
+      </label>
+      <div class="tb-sep"></div>
+      <button class="tb" onclick="insertTable()" title="Insert table">⊞ Table</button>
+      <button class="tb" onclick="showImgPicker()" title="Insert image">🖼 Image</button>
+      <button class="tb" onclick="insertLink()" title="Insert link">🔗 Link</button>
+      <button class="tb" onclick="cmd('insertHorizontalRule')" title="Divider">— HR</button>
+      <div class="tb-sep"></div>
+      <button class="tb" onclick="cmd('undo')" title="Undo">↩</button>
+      <button class="tb" onclick="cmd('redo')" title="Redo">↪</button>
+    </div>
+
+    <!-- Editor -->
+    <div class="editor-box">
+      <div id="editor" contenteditable="true" spellcheck="true" oninput="schedSave()"></div>
+    </div>
+
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Quick fields (injected by JS based on mode) -->
+    <div class="card" id="quick-fields">
+      <div class="card-title">Quick Fields</div>
+    </div>
+
+    <!-- Experiments list (day mode only) -->
+    <div class="card" id="exp-list-card" style="display:none">
+      <div class="card-title">Experiments</div>
+      <div id="exp-list"></div>
+    </div>
+
+    <!-- Attachments -->
+    <div class="card">
+      <div class="flex ic jb mb3">
+        <div class="card-title" style="margin:0">📎 Attachments</div>
+        <button class="btn btn-sec btn-sm" onclick="showUpload()">+ Add</button>
+      </div>
+      <div id="att-list"><p class="sm muted">No attachments yet.</p></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<div id="popup-container"></div>
+
+<script>
+// ── DB helpers ──
+const DB={
+  g(k){try{return JSON.parse(localStorage.getItem('ld_'+k)||'null')}catch{return null}},
+  s(k,v){localStorage.setItem('ld_'+k,JSON.stringify(v))},
+  list(k){return this.g(k)||[]},
+  push(k,item){const l=this.list(k);l.push(item);this.s(k,l);return item},
+  upd(k,id,patch){const l=this.list(k);const i=l.findIndex(x=>x.id===id);if(i>=0){l[i]={...l[i],...patch};this.s(k,l);return l[i]}return null},
+  del(k,id){this.s(k,this.list(k).filter(x=>x.id!==id))},
+  find(k,id){return this.list(k).find(x=>x.id===id)||null}
+};
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function fd(d){if(!d)return'';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+function ft(ts){if(!ts)return'';return new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+function fsz(b){if(!b)return'0B';const k=1024,s=['B','KB','MB','GB'];const i=Math.floor(Math.log(b)/Math.log(k));return(b/Math.pow(k,i)).toFixed(1)+s[i]}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function cfg(){return DB.g('cfg')||{name:'Researcher',role:'PhD Student',lab:'Research Lab',pi:'PI'}}
+
+const EXT_C={pdf:'#ef4444',doc:'#2563eb',docx:'#2563eb',xls:'#16a34a',xlsx:'#16a34a',csv:'#16a34a',ppt:'#ea580c',pptx:'#ea580c',png:'#7c3aed',jpg:'#7c3aed',jpeg:'#7c3aed',gif:'#7c3aed',tif:'#7c3aed',mp4:'#0891b2',mov:'#0891b2',pzfx:'#1d4ed8',zip:'#92400e'};
+function ficon(name){const e=(name||'').split('.').pop().toLowerCase();const c=EXT_C[e]||'#64748b';return`<div class="ficon" style="background:${c}18;color:${c}">${e.slice(0,3).toUpperCase()}</div>`}
+
+// ── Parse URL params ──
+const params=new URLSearchParams(location.search);
+const MODE=params.get('mode')||'day';   // 'day' or 'exp'
+const REC_ID=params.get('rec')||'';
+const EXP_ID=params.get('exp')||'';
+
+let saveTimer=null;
+function schedSave(){
+  document.getElementById('save-st').textContent='Saving…';
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>doSave(false),1200);
+}
+
+function cmd(c,v){document.getElementById('editor').focus();document.execCommand(c,false,v||null)}
+
+// ── INIT ──
+window.onload=function(){
+  const c=cfg();
+  if(MODE==='day') initDayMode(c);
+  else initExpMode(c);
+  loadAttachments();
+};
+
+// ════ DAY MODE ════
+function initDayMode(c){
+  const rec=DB.find('records',REC_ID);
+  if(!rec){document.getElementById('editor').innerHTML='<p>Record not found.</p>';return}
+
+  document.title='Daily ELN — '+fd(rec.date);
+  document.getElementById('page-title').textContent='Daily ELN — '+fd(rec.date);
+  document.getElementById('m-date').textContent=fd(rec.date);
+  document.getElementById('m-name').textContent=c.name||'—';
+  document.getElementById('m-lab').textContent=c.lab||'—';
+
+  // Editor content
+  const ed=document.getElementById('editor');
+  ed.innerHTML=rec.elnDetail||buildDayDefault(rec,c);
+
+  // Quick fields
+  document.getElementById('quick-fields').innerHTML=`
+    <div class="card-title">Quick Fields</div>
+    <div class="fg"><label class="fl">Overall Summary</label>
+      <textarea class="ft" id="qf-sum" style="min-height:80px">${esc(rec.summary||'')}</textarea></div>
+    <div class="fg"><label class="fl">Problems</label>
+      <textarea class="ft" id="qf-prob" style="min-height:55px">${esc(rec.problems||'')}</textarea></div>
+    <div class="fg"><label class="fl">Next Steps</label>
+      <textarea class="ft" id="qf-next" style="min-height:55px">${esc(rec.nextSteps||'')}</textarea></div>
+    <button class="btn btn-pr btn-sm w100" onclick="saveAll()">💾 Save</button>`;
+
+  // Experiments list
+  const exps=rec.experiments||[];
+  if(exps.length){
+    document.getElementById('exp-list-card').style.display='';
+    document.getElementById('exp-list').innerHTML=exps.map(e=>{
+      const pr=DB.find('projects',e.projId);
+      return`<div class="fi-row mb2" style="padding:7px 9px">
+        <div class="fi-info">
+          <div class="fi-name">${esc(e.title||'Untitled')}</div>
+          ${pr?`<div class="fi-meta" style="color:${pr.color}">${esc(pr.name)}</div>`:''}
+        </div>
+        <a href="eln.html?mode=exp&rec=${REC_ID}&exp=${e.id}" style="font-size:11px;color:var(--pr);font-weight:600;white-space:nowrap;text-decoration:none">Open →</a>
+      </div>`;
+    }).join('');
+  }
+}
+
+function buildDayDefault(rec,c){
+  const exps=rec.experiments||[];
+  const expHtml=exps.map((e,i)=>{
+    const pr=DB.find('projects',e.projId);
+    return`<h3>${i+1}. ${esc(e.title||'Untitled')}${pr?` <span style="color:${pr.color}">[${esc(pr.name)}]</span>`:''}</h3>
+<p><strong>Objective:</strong> ${esc(e.objective||'')}</p>
+<p><strong>Results:</strong> ${esc(e.results||'')}</p>
+<p><strong>Interpretation:</strong> ${esc(e.interpretation||'')}</p>
+<p>&nbsp;</p>`;
+  }).join('');
+  return`<h1>Daily Lab Notebook — ${fd(rec.date)}</h1>
+<p><strong>Researcher:</strong> ${esc(c.name)} &nbsp;|&nbsp; <strong>Lab:</strong> ${esc(c.lab)} &nbsp;|&nbsp; <strong>PI:</strong> ${esc(c.pi)}</p>
+<hr>
+<h2>Overall Summary</h2>
+<p>${esc(rec.summary||'')}</p>
+<h2>Experiments</h2>
+${expHtml||'<p>(No experiments recorded yet)</p>'}
+<h2>Key Results</h2>
+<p></p>
+<h2>Problems / Troubleshooting</h2>
+<p>${esc(rec.problems||'')}</p>
+<h2>Next Steps</h2>
+<p>${esc(rec.nextSteps||'')}</p>
+<h2>Notes</h2>
+<p></p>`;
+}
+
+// ════ EXPERIMENT MODE ════
+function initExpMode(c){
+  const rec=DB.find('records',REC_ID);
+  const exp=rec&&(rec.experiments||[]).find(e=>e.id===EXP_ID);
+  if(!exp){document.getElementById('editor').innerHTML='<p>Experiment not found.</p>';return}
+  const proj=DB.find('projects',exp.projId);
+
+  document.title='ELN — '+exp.title;
+  document.getElementById('page-title').textContent=esc(exp.title||'Experiment')+' — ELN';
+  document.getElementById('m-date').textContent=fd(rec.date);
+  document.getElementById('m-name').textContent=c.name||'—';
+  document.getElementById('m-lab').textContent=c.lab||'—';
+  if(proj){
+    document.getElementById('m-proj-wrap').style.display='';
+    document.getElementById('m-proj').textContent=proj.name;
+    document.getElementById('m-proj').style.color=proj.color;
+  }
+  const tagsEl=document.getElementById('m-tags');
+  if(tagsEl)(exp.tags||[]).forEach(t=>{const s=document.createElement('span');s.className='tag';s.textContent=t;tagsEl.appendChild(s)});
+
+  const ed=document.getElementById('editor');
+  ed.innerHTML=exp.elnDetail||buildExpDefault(exp,proj);
+
+  document.getElementById('quick-fields').innerHTML=`
+    <div class="card-title">Quick Fields</div>
+    ${[['Objective','qf-obj',exp.objective||''],['Materials / Reagents','qf-mat',exp.materials||''],['Protocol','qf-prot',exp.protocol||''],
+       ['Results','qf-res',exp.results||''],['Interpretation','qf-interp',exp.interpretation||''],['Problems','qf-prob',exp.problems||'']]
+      .map(([l,id,v])=>`<div class="fg"><label class="fl">${l}</label><textarea class="ft" id="${id}" style="min-height:52px">${esc(v)}</textarea></div>`).join('')}
+    <button class="btn btn-pr btn-sm w100" onclick="saveAll()">💾 Save</button>`;
+}
+
+function buildExpDefault(exp,proj){
+  return`<h1>${esc(exp.title||'Experiment')}</h1>
+${proj?`<p style="color:${proj.color};font-weight:600">${esc(proj.name)}</p>`:''}
+<hr>
+<h2>Objective</h2><p>${esc(exp.objective||'')}</p>
+<h2>Materials &amp; Reagents</h2><p>${esc(exp.materials||'')}</p>
+<h2>Protocol / Procedure</h2>
+<ol><li>Step 1</li><li>Step 2</li><li>Step 3</li></ol>
+<p>${esc(exp.protocol||'')}</p>
+<h2>Conditions &amp; Parameters</h2>
+<table>
+  <tbody>
+    <tr><th>Parameter</th><th>Value</th><th>Notes</th></tr>
+    <tr><td>Temperature</td><td>37°C</td><td></td></tr>
+    <tr><td>Time</td><td></td><td></td></tr>
+    <tr><td>Concentration</td><td></td><td></td></tr>
+  </tbody>
+</table>
+<h2>Results</h2><p>${esc(exp.results||'')}</p>
+<h2>Data Interpretation</h2><p>${esc(exp.interpretation||'')}</p>
+<h2>Problems / Notes</h2><p>${esc(exp.problems||'')}</p>
+<h2>Next Steps</h2><p></p>`;
+}
+
+// ── Save ──
+function doSave(showToast){
+  const ed=document.getElementById('editor');
+  const html=ed.innerHTML;
+  if(MODE==='day'){
+    const patch={elnDetail:html,updatedAt:Date.now()};
+    const sum=document.getElementById('qf-sum')?.value;
+    const prob=document.getElementById('qf-prob')?.value;
+    const next=document.getElementById('qf-next')?.value;
+    if(sum!==undefined)patch.summary=sum;
+    if(prob!==undefined)patch.problems=prob;
+    if(next!==undefined)patch.nextSteps=next;
+    DB.upd('records',REC_ID,patch);
+  } else {
+    const rec=DB.find('records',REC_ID);if(!rec)return;
+    const fields={objective:'qf-obj',materials:'qf-mat',protocol:'qf-prot',results:'qf-res',interpretation:'qf-interp',problems:'qf-prob'};
+    const patch={};
+    Object.entries(fields).forEach(([k,id])=>{const el=document.getElementById(id);if(el)patch[k]=el.value});
+    patch.elnDetail=html;patch.updatedAt=Date.now();
+    const exps=(rec.experiments||[]).map(e=>e.id===EXP_ID?{...e,...patch}:e);
+    DB.upd('records',REC_ID,{experiments:exps,updatedAt:Date.now()});
+  }
+  const st=document.getElementById('save-st');
+  if(st)st.textContent='Saved · '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  if(showToast)toast('Saved!','t-ok');
+}
+function saveAll(){doSave(true)}
+
+// ── Table ──
+function insertTable(){
+  const rows=parseInt(prompt('Rows (including header):','4')||'0');
+  const cols=parseInt(prompt('Columns:','3')||'0');
+  if(!rows||!cols)return;
+  let html='<table><tbody>';
+  for(let r=0;r<rows;r++){
+    html+='<tr>';
+    for(let c=0;c<cols;c++){
+      if(r===0)html+=`<th>Header ${c+1}</th>`;
+      else html+=`<td>&nbsp;</td>`;
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table><p></p>';
+  document.getElementById('editor').focus();
+  document.execCommand('insertHTML',false,html);
+}
+
+// ── Image ──
+function showImgPicker(){
+  document.getElementById('popup-container').innerHTML=`
+    <div class="ov" onclick="if(event.target.classList.contains('ov'))closePopup()">
+      <div class="popup">
+        <h3>🖼 Insert Image</h3>
+        <div class="fg"><label class="fl">Upload image file</label>
+          <input type="file" id="img-file" accept="image/*" style="font-size:13px;width:100%"></div>
+        <div style="text-align:center;color:var(--t3);font-size:12px;margin:6px 0">— or —</div>
+        <div class="fg"><label class="fl">Image URL</label>
+          <input class="fi" id="img-url" placeholder="https://…"></div>
+        <div class="flex g2" style="justify-content:flex-end;margin-top:6px">
+          <button class="btn btn-sec btn-sm" onclick="closePopup()">Cancel</button>
+          <button class="btn btn-pr btn-sm" onclick="doInsertImage()">Insert</button>
+        </div>
+      </div>
+    </div>`;
+}
+function doInsertImage(){
+  const fi=document.getElementById('img-file');
+  const ui=document.getElementById('img-url');
+  if(fi?.files[0]){
+    const fr=new FileReader();
+    fr.onload=e=>{
+      document.getElementById('editor').focus();
+      document.execCommand('insertHTML',false,`<img src="${e.target.result}" alt="image"><p></p>`);
+      closePopup();
+    };fr.readAsDataURL(fi.files[0]);
+  } else if(ui?.value.trim()){
+    document.getElementById('editor').focus();
+    document.execCommand('insertHTML',false,`<img src="${esc(ui.value.trim())}" alt="image"><p></p>`);
+    closePopup();
+  } else alert('Please select a file or enter a URL.');
+}
+
+// ── Link ──
+function insertLink(){
+  const url=prompt('URL:','https://');if(!url)return;
+  const txt=prompt('Link text:','Link');if(!txt)return;
+  document.getElementById('editor').focus();
+  document.execCommand('insertHTML',false,`<a href="${esc(url)}" target="_blank">${esc(txt)}</a>`);
+}
+
+// ── Attachments ──
+function loadAttachments(){
+  const atts=DB.list('atts').filter(a=>{
+    if(MODE==='exp')return a.expId===EXP_ID;
+    const rec=DB.find('records',REC_ID);
+    return rec&&a.date===rec.date&&!a.expId;
+  });
+  const el=document.getElementById('att-list');
+  el.innerHTML=atts.length?atts.map(a=>attRow(a)).join(''):'<p class="sm muted">No attachments yet.</p>';
+}
+function attRow(a){
+  return`<div class="fi-row">
+    ${ficon(a.name)}
+    <div class="fi-info"><div class="fi-name">${esc(a.name)}</div>
+    <div class="fi-meta">${fsz(a.size)}${a.description?' · '+esc(a.description):''} · ${ft(a.uploadedAt)}</div></div>
+    <div class="flex g2">
+      ${a.fileId?`<button class="icon-btn" onclick="dlFile('${a.fileId}')" title="Download">⬇</button>`:''}
+      <button class="icon-btn" onclick="delAtt('${a.id}')" style="color:#dc2626">🗑</button>
+    </div>
+  </div>`;
+}
+function dlFile(fid){const f=DB.find('files',fid);if(!f)return;const a=document.createElement('a');a.href=f.data;a.download=f.name;a.click()}
+function delAtt(id){if(!confirm('Delete?'))return;DB.del('atts',id);loadAttachments();toast('Deleted')}
+
+let pendFiles=[];
+function showUpload(){
+  const rec=DB.find('records',REC_ID);
+  document.getElementById('popup-container').innerHTML=`
+    <div class="ov" onclick="if(event.target.classList.contains('ov'))closePopup()">
+      <div class="popup" style="max-width:440px">
+        <h3>📎 Upload Attachments</h3>
+        <div class="dz" id="udz" onclick="document.getElementById('ufi').click()">
+          <div style="font-size:26px;margin-bottom:6px">📂</div>
+          <p><strong>Click to select</strong> or drag &amp; drop</p>
+          <p style="font-size:11px;margin-top:3px">Word · Excel · PPT · PDF · Images · Prism · Video · ZIP</p>
+          <input type="file" id="ufi" multiple style="display:none" onchange="upHandle(this.files)">
+        </div>
+        <div id="up-prev" class="mt3"></div>
+        <div class="fg mt3"><label class="fl">Description</label><input class="fi" id="up-desc" placeholder="What are these files?"></div>
+        <div class="fg"><label class="fl">Tags (comma separated)</label><input class="fi" id="up-tags" placeholder="e.g. raw data, WB, figure"></div>
+        <div class="flex g2" style="justify-content:flex-end;margin-top:10px">
+          <button class="btn btn-sec btn-sm" onclick="closePopup()">Cancel</button>
+          <button class="btn btn-pr btn-sm" id="up-btn" onclick="doUpload()" disabled>Upload</button>
+        </div>
+      </div>
+    </div>`;
+  const dz=document.getElementById('udz');
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');upHandle(e.dataTransfer.files)});
+}
+function upHandle(files){
+  pendFiles=[...files];
+  const p=document.getElementById('up-prev');
+  if(p)p.innerHTML=pendFiles.map(f=>`<div class="fi-row mb2">${ficon(f.name)}<div class="fi-info"><div class="fi-name">${esc(f.name)}</div><div class="fi-meta">${fsz(f.size)}</div></div></div>`).join('');
+  const b=document.getElementById('up-btn');if(b)b.disabled=!pendFiles.length;
+}
+function doUpload(){
+  if(!pendFiles.length)return;
+  const rec=DB.find('records',REC_ID);
+  const dateStr=rec?.date||'';
+  const exp=MODE==='exp'?rec&&(rec.experiments||[]).find(e=>e.id===EXP_ID):null;
+  const projId=exp?.projId||'';
+  const desc=document.getElementById('up-desc')?.value||'';
+  const tags=(document.getElementById('up-tags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+  const btn=document.getElementById('up-btn');if(btn){btn.textContent='Uploading…';btn.disabled=true}
+  let done=0;
+  pendFiles.forEach(file=>{
+    const fr=new FileReader();
+    fr.onload=e=>{
+      const stored=DB.push('files',{id:uid(),name:file.name,size:file.size,type:file.type,data:e.target.result,at:Date.now()});
+      const att={id:uid(),fileId:stored.id,name:file.name,size:file.size,fileType:file.type,date:dateStr,projId,description:desc,tags,uploadedAt:Date.now()};
+      if(MODE==='exp')att.expId=EXP_ID;
+      DB.push('atts',att);
+      done++;
+      if(done===pendFiles.length){pendFiles=[];closePopup();loadAttachments();toast(`${done} file${done!==1?'s':''} uploaded!`,'t-ok')}
+    };fr.readAsDataURL(file);
+  });
+}
+
+function closePopup(){document.getElementById('popup-container').innerHTML=''}
+
+// ── Print ──
+function doPrint(){
+  doSave(false);
+  const ed=document.getElementById('editor');
+  const c=cfg();const rec=DB.find('records',REC_ID);
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>ELN Print</title>
+  <style>body{font-family:Arial,sans-serif;max-width:900px;margin:40px auto;padding:24px;color:#1e293b;line-height:1.8}
+  h1{color:#1d4ed8;font-size:22px;border-bottom:2px solid #1d4ed8;padding-bottom:8px}
+  h2{font-size:17px;color:#374151;margin-top:22px;border-bottom:1px solid #e5e7eb;padding-bottom:3px}
+  h3{font-size:14px;color:#4b5563;margin-top:14px}
+  table{border-collapse:collapse;width:100%;margin:12px 0}td,th{border:1px solid #cbd5e1;padding:8px 10px}th{background:#f1f5f9;font-weight:700}
+  img{max-width:100%;border-radius:6px;margin:8px 0;display:block}
+  pre{background:#f8fafc;border:1px solid #e2e8f0;padding:12px;border-radius:6px;font-size:12px}
+  a{color:#2563eb}p{margin:4px 0}hr{border:none;border-top:1px solid #e5e7eb;margin:16px 0}
+  @media print{body{margin:0;padding:16px}}</style></head><body>
+  ${ed.innerHTML}
+  <hr style="margin-top:48px"><p style="color:#9ca3af;font-size:12px">LabDaily ELN · ${esc(c.name)} · ${new Date().toLocaleString()}</p>
+  <script>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
+// ── Toast ──
+function toast(msg,cls=''){
+  const el=document.createElement('div');
+  el.className='toast '+(cls||'');el.textContent=msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+</script>
+</body>
+</html>
