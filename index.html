@@ -667,7 +667,14 @@ function renderRecords(){
         <div class="card mb3">
           <div class="flex ic jb mb3">
             <button class="btn btn-secondary btn-sm" onclick="REC_MO--;if(REC_MO<0){REC_MO=11;REC_YR--}renderRecords()">‹</button>
-            <div style="font-weight:700;font-size:13px">${MN[mo]} ${yr}</div>
+            <div class="flex ic g2u">
+              <select style="border:none;background:transparent;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text)" onchange="REC_MO=parseInt(this.value);renderRecords()">
+                ${MN.map((n,i)=>`<option value="${i}" ${i===mo?'selected':''}>${n}</option>`).join('')}
+              </select>
+              <select style="border:none;background:transparent;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;color:var(--text)" onchange="REC_YR=parseInt(this.value);renderRecords()">
+                ${[...new Set([...DB.list('records').map(r=>r.date.slice(0,4)),String(new Date().getFullYear())])].sort().reverse().map(y=>`<option value="${y}" ${parseInt(y)===yr?'selected':''}>${y}</option>`).join('')}
+              </select>
+            </div>
             <button class="btn btn-secondary btn-sm" onclick="REC_MO++;if(REC_MO>11){REC_MO=0;REC_YR++}renderRecords()">›</button>
           </div>
           <div class="cal">${cal}</div>
