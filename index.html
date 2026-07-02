@@ -336,6 +336,7 @@ const DB={
   find(k,id){return this.list(k).find(x=>x.id===id)||null}
 };
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function siteBaseUrl(){return location.origin+location.pathname.substring(0,location.pathname.lastIndexOf('/')+1)}
 function today(){return new Date().toISOString().split('T')[0]}
 function fd(d){if(!d)return'';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
 function ft(ts){if(!ts)return'';return new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
@@ -1171,7 +1172,7 @@ function renderSettings(){
         <button class="btn btn-primary" onclick="saveProfile()">Save Settings</button>
         ${c.ghToken?`<div class="mt3 p3" style="background:var(--primary-light);border-radius:var(--r)">
           <p class="sm mb2"><strong>📤 Publish records for PI:</strong> go to <em>Today Summary</em> and click <strong>Share with PI</strong>.</p>
-          ${c.gistId?`<p class="sm muted">Last published link:<br><a href="https://coffeyfun-jennifer.github.io/lab-daily/pi-view.html?gist=${c.gistId}" target="_blank" style="word-break:break-all;color:var(--primary)">pi-view.html?gist=${c.gistId}</a></p>`:''}
+          ${c.gistId?`<p class="sm muted">Last published link:<br><a href="${siteBaseUrl()}pi-view.html?gist=${c.gistId}" target="_blank" style="word-break:break-all;color:var(--primary)">pi-view.html?gist=${c.gistId}</a></p>`:''}
         </div>`:'<p class="xs muted mt2">Add your GitHub token above to enable PI sharing.</p>'}
       </div>
       <div class="card mb4">
@@ -3075,7 +3076,7 @@ async function publishToPI(){
     const cfg0={...c,gistId};
     DB.s('cfg',cfg0);
 
-    const link=`https://coffeyfun-jennifer.github.io/lab-daily/pi-view.html?gist=${gistId}`;
+    const link=`${siteBaseUrl()}pi-view.html?gist=${gistId}`;
     status.innerHTML=`
       <div style="background:var(--primary-light);border-radius:var(--r);padding:12px">
         <p class="sm mb2">✅ <strong>Published!</strong> Send this link to Dr. Liu:</p>
