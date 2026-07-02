@@ -195,8 +195,16 @@ async function load(){
     const res=await fetch(`https://api.github.com/gists/${GIST_ID}`);
     if(!res.ok)throw new Error('Could not load (HTTP '+res.status+')');
     const gist=await res.json();
-    const raw=gist.files['labdaily-pi.json']?.content;
-    if(!raw)throw new Error('Data file not found');
+    const fileObj=gist.files['labdaily-pi.json'];
+    if(!fileObj)throw new Error('Data file not found');
+    // The Gist API truncates file content around ~1MB; large published
+    // datasets (with embedded attachment previews) need the raw file instead.
+    let raw=fileObj.content;
+    if(fileObj.truncated){
+      const rawRes=await fetch(fileObj.raw_url);
+      if(!rawRes.ok)throw new Error('Could not load full data (HTTP '+rawRes.status+')');
+      raw=await rawRes.text();
+    }
     DATA=JSON.parse(raw);
     // Build project map
     DATA._projMap={};
