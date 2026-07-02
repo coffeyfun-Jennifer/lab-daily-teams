@@ -24,11 +24,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .meta-item{font-size:12px;color:var(--t2)}
 .meta-item span{font-weight:600;color:var(--tx)}
 /* Toolbar */
-.toolbar{background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:7px 10px;margin-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;gap:3px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.toolbar{background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:7px 10px;margin-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;gap:3px;box-shadow:0 1px 3px rgba(0,0,0,.07);position:sticky;top:52px;z-index:40}
 .tb{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border:1px solid transparent;border-radius:5px;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--t2);transition:all .1s}
 .tb:hover{background:var(--s2);border-color:var(--bd);color:var(--tx)}
 .tb-sep{width:1px;height:22px;background:var(--bd);margin:0 2px;flex-shrink:0}
 .tb-sel{border:1px solid var(--bd);border-radius:5px;padding:3px 6px;font-size:12px;height:28px;background:var(--s);cursor:pointer}
+/* Toolbar dropdown (table tools) */
+.tb-dd{position:relative}
+.tb-dd-menu{display:none;position:absolute;top:32px;left:0;background:var(--s);border:1px solid var(--bd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:5px;z-index:60;min-width:190px;flex-direction:column}
+.tb-dd-menu.show{display:flex}
+.tb-dd-menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 10px;border:none;background:none;border-radius:5px;font-size:13px;color:var(--tx);cursor:pointer;font-weight:400}
+.tb-dd-menu button:hover{background:var(--s2)}
+.tb-dd-sep{height:1px;background:var(--bd);margin:4px 2px}
 /* Editor */
 .editor-box{background:var(--s);border:1px solid var(--bd);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden}
 #editor{min-height:640px;padding:36px 40px;outline:none;font-size:14px;line-height:1.85;color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
@@ -87,6 +94,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .toasts{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:7px}
 .toast{background:#1e293b;color:#f1f5f9;padding:10px 16px;border-radius:var(--r);font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.2);animation:tin .2s}
 .t-ok{background:#15803d}
+.t-err{background:#b91c1c}
 @keyframes tin{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 </style>
@@ -134,17 +142,47 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <option value="blockquote">Quote</option>
       </select>
       <div class="tb-sep"></div>
+      <select class="tb-sel" title="Font family" onchange="setFontName(this.value);this.selectedIndex=0">
+        <option value="">Font</option>
+        <option value="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">Default</option>
+        <option value="Arial,Helvetica,sans-serif">Arial</option>
+        <option value="Georgia,serif">Georgia</option>
+        <option value="'Times New Roman',Times,serif">Times New Roman</option>
+        <option value="'Courier New',Courier,monospace">Courier New</option>
+        <option value="Verdana,sans-serif">Verdana</option>
+      </select>
+      <select class="tb-sel" title="Font size" onchange="setFontSize(this.value);this.selectedIndex=0">
+        <option value="">Size</option>
+        <option value="10">10</option>
+        <option value="12">12</option>
+        <option value="13">13</option>
+        <option value="14">14</option>
+        <option value="16">16</option>
+        <option value="18">18</option>
+        <option value="20">20</option>
+        <option value="24">24</option>
+        <option value="28">28</option>
+        <option value="32">32</option>
+        <option value="36">36</option>
+        <option value="48">48</option>
+      </select>
+      <div class="tb-sep"></div>
       <button class="tb" onclick="cmd('bold')" title="Bold"><b>B</b></button>
       <button class="tb" onclick="cmd('italic')" title="Italic"><i>I</i></button>
       <button class="tb" onclick="cmd('underline')" title="Underline"><u>U</u></button>
       <button class="tb" onclick="cmd('strikeThrough')" title="Strike"><s>S</s></button>
+      <button class="tb" onclick="cmd('subscript')" title="Subscript">X₂</button>
+      <button class="tb" onclick="cmd('superscript')" title="Superscript">X²</button>
       <div class="tb-sep"></div>
       <button class="tb" onclick="cmd('insertUnorderedList')" title="Bullet list">• ≡</button>
       <button class="tb" onclick="cmd('insertOrderedList')" title="Numbered list">1. ≡</button>
+      <button class="tb" onclick="cmd('outdent')" title="Decrease indent">⇤¶</button>
+      <button class="tb" onclick="cmd('indent')" title="Increase indent">⇥¶</button>
       <div class="tb-sep"></div>
       <button class="tb" onclick="cmd('justifyLeft')" title="Left">⬅</button>
       <button class="tb" onclick="cmd('justifyCenter')" title="Center">☰</button>
       <button class="tb" onclick="cmd('justifyRight')" title="Right">➡</button>
+      <button class="tb" onclick="cmd('justifyFull')" title="Justify">☰☰</button>
       <div class="tb-sep"></div>
       <label class="tb" title="Text colour" style="position:relative;overflow:hidden">
         <span>A</span>
@@ -154,8 +192,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span>H</span>
         <input type="color" value="#fef08a" onchange="cmd('hiliteColor',this.value)" style="position:absolute;opacity:0;width:0;height:0">
       </label>
+      <button class="tb" onclick="cmd('removeFormat')" title="Clear formatting">✕A</button>
       <div class="tb-sep"></div>
-      <button class="tb" onclick="insertTable()" title="Insert table">⊞ Table</button>
+      <div class="tb-dd">
+        <button class="tb" onclick="toggleTableMenu(event)" title="Table tools">⊞ Table ▾</button>
+        <div class="tb-dd-menu" id="table-menu">
+          <button onclick="insertTable()">➕ Insert table…</button>
+          <div class="tb-dd-sep"></div>
+          <button onclick="insertTableRow('above')">⬆ Insert row above</button>
+          <button onclick="insertTableRow('below')">⬇ Insert row below</button>
+          <button onclick="insertTableColumn('left')">⬅ Insert column left</button>
+          <button onclick="insertTableColumn('right')">➡ Insert column right</button>
+          <div class="tb-dd-sep"></div>
+          <button onclick="deleteTableRow()">🗑 Delete row</button>
+          <button onclick="deleteTableColumn()">🗑 Delete column</button>
+          <button onclick="deleteTable()">🗑 Delete table</button>
+        </div>
+      </div>
       <button class="tb" onclick="showImgPicker()" title="Insert image">🖼 Image</button>
       <button class="tb" onclick="insertLink()" title="Insert link">🔗 Link</button>
       <button class="tb" onclick="cmd('insertHorizontalRule')" title="Divider">— HR</button>
@@ -235,6 +288,24 @@ function schedSave(){
 }
 
 function cmd(c,v){document.getElementById('editor').focus();document.execCommand(c,false,v||null)}
+
+function setFontName(name){
+  if(!name)return;
+  document.getElementById('editor').focus();
+  document.execCommand('fontName',false,name);
+}
+function setFontSize(px){
+  if(!px)return;
+  const ed=document.getElementById('editor');
+  ed.focus();
+  // execCommand('fontSize') only accepts legacy sizes 1-7; use size 7 as a
+  // marker then rewrite the resulting <font size="7"> tags to real px sizes.
+  document.execCommand('fontSize',false,'7');
+  ed.querySelectorAll('font[size="7"]').forEach(el=>{
+    el.removeAttribute('size');
+    el.style.fontSize=px+'px';
+  });
+}
 
 // ── INIT ──
 window.onload=function(){
@@ -414,6 +485,79 @@ function insertTable(){
   html+='</tbody></table><p></p>';
   document.getElementById('editor').focus();
   document.execCommand('insertHTML',false,html);
+}
+
+function toggleTableMenu(e){
+  e.stopPropagation();
+  document.getElementById('table-menu').classList.toggle('show');
+}
+document.addEventListener('click',()=>{
+  const m=document.getElementById('table-menu');
+  if(m)m.classList.remove('show');
+});
+
+function getCurrentCell(){
+  const sel=window.getSelection();
+  if(!sel||!sel.rangeCount)return null;
+  let node=sel.getRangeAt(0).startContainer;
+  if(node.nodeType===3)node=node.parentNode;
+  return node.closest?node.closest('#editor td,#editor th'):null;
+}
+function getCurrentTable(){
+  const cell=getCurrentCell();
+  if(cell)return cell.closest('table');
+  let node=window.getSelection().anchorNode;
+  if(node&&node.nodeType===3)node=node.parentNode;
+  return node&&node.closest?node.closest('#editor table'):null;
+}
+function deleteTable(){
+  const table=getCurrentTable();
+  if(!table){toast('Click inside a table first','t-err');return}
+  table.remove();
+  schedSave();
+}
+function deleteTableRow(){
+  const cell=getCurrentCell();
+  if(!cell){toast('Click inside a table cell first','t-err');return}
+  const row=cell.closest('tr');
+  const table=row.closest('table');
+  if(table.querySelectorAll('tr').length<=1){deleteTable();return}
+  row.remove();
+  schedSave();
+}
+function deleteTableColumn(){
+  const cell=getCurrentCell();
+  if(!cell){toast('Click inside a table cell first','t-err');return}
+  const table=cell.closest('table');
+  const idx=Array.from(cell.parentNode.children).indexOf(cell);
+  const rows=table.querySelectorAll('tr');
+  if(rows[0].children.length<=1){deleteTable();return}
+  rows.forEach(r=>{if(r.children[idx])r.children[idx].remove()});
+  schedSave();
+}
+function insertTableRow(pos){
+  const cell=getCurrentCell();
+  if(!cell){toast('Click inside a table cell first','t-err');return}
+  const row=cell.closest('tr');
+  const cols=row.children.length;
+  const newRow=document.createElement('tr');
+  for(let i=0;i<cols;i++){const td=document.createElement('td');td.innerHTML='&nbsp;';newRow.appendChild(td)}
+  if(pos==='above')row.before(newRow);else row.after(newRow);
+  schedSave();
+}
+function insertTableColumn(pos){
+  const cell=getCurrentCell();
+  if(!cell){toast('Click inside a table cell first','t-err');return}
+  const table=cell.closest('table');
+  const idx=Array.from(cell.parentNode.children).indexOf(cell);
+  table.querySelectorAll('tr').forEach(r=>{
+    const ref=r.children[idx];
+    if(!ref)return;
+    const newCell=document.createElement(ref.tagName==='TH'?'th':'td');
+    newCell.innerHTML='&nbsp;';
+    if(pos==='left')ref.before(newCell);else ref.after(newCell);
+  });
+  schedSave();
 }
 
 // ── Image ──
