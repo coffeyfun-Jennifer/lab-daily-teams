@@ -163,6 +163,10 @@ function toast(msg){
   setTimeout(()=>t.classList.remove('show'),2500);
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function previewText(s,len){
+  const clean=String(s||'').replace(/^#+\s*/,'').replace(/\*\*/g,'').replace(/\s+/g,' ').trim();
+  return clean.length>len ? clean.slice(0,len).trim()+'…' : clean;
+}
 function fd(ds){
   if(!ds)return'';
   return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'long',day:'numeric',year:'numeric'});
@@ -296,7 +300,7 @@ function renderToday(){
             <div class="flex ic jb mb2" style="padding:6px 8px;border-radius:6px;background:var(--surface2);cursor:pointer" onclick="go('calendar')">
               <div>
                 <div style="font-size:13px;font-weight:600">${fd(r.date)}</div>
-                <div class="xs muted">${esc((r.summary||'').slice(0,60))}</div>
+                <div class="xs muted">${esc(previewText(r.summary,60))}</div>
               </div>
               <span style="color:var(--text3);font-size:16px">›</span>
             </div>`).join('')}
