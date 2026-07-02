@@ -1161,7 +1161,7 @@ function renderSettings(){
     </div>
     <div>
       <div class="card mb4">
-        <div class="card-title mb3">🔗 PI Sharing (Dr. Liu)</div>
+        <div class="card-title mb3">🔗 PI Sharing${c.pi?` (${esc(c.pi)})`:''}</div>
         <p class="sm muted mb3">Share a read-only link with your PI. They can view records and add comments.</p>
         <div class="fg"><label class="fl">PI Email (for comment replies)</label>
           <input class="fi" id="s-pi-email" type="email" value="${esc(c.piEmail||'')}" placeholder="drliui@university.edu">
@@ -2967,7 +2967,7 @@ function openShareModal(){
   modal(`
     <div class="mh"><h2>🔗 Share with PI</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
     <div class="mb">
-      <p class="sm muted mb3">Select which records to share. Dr. Liu will see them in read-only mode and can add PI comments.</p>
+      <p class="sm muted mb3">Select which records to share. ${esc(c.pi||'Your PI')} will see them in read-only mode and can add PI comments.</p>
 
       <div class="fg">
         <div class="flex ic jb mb2">
@@ -2990,7 +2990,7 @@ function openShareModal(){
       </div>
 
       ${atts.length ? `<div class="mt3 p2" style="background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)">
-        <p class="xs muted"><strong>📎 ${atts.length} file${atts.length!==1?'s':''}</strong> will be included automatically for Dr. Liu to download.</p>
+        <p class="xs muted"><strong>📎 ${atts.length} file${atts.length!==1?'s':''}</strong> will be included automatically for ${esc(c.pi||'your PI')} to download.</p>
       </div>` : ''}
 
       <div id="sh-status" class="mt3"></div>
@@ -3079,12 +3079,12 @@ async function publishToPI(){
     const link=`${siteBaseUrl()}pi-view.html?gist=${gistId}`;
     status.innerHTML=`
       <div style="background:var(--primary-light);border-radius:var(--r);padding:12px">
-        <p class="sm mb2">✅ <strong>Published!</strong> Send this link to Dr. Liu:</p>
+        <p class="sm mb2">✅ <strong>Published!</strong> Send this link to ${esc(c.pi||'your PI')}:</p>
         <div style="display:flex;gap:6px;align-items:center">
           <input id="sh-link" class="fi" value="${link}" readonly style="font-size:11px;flex:1">
           <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText('${link}').then(()=>toast('Copied!','t-ok'))">Copy</button>
         </div>
-        <p class="xs muted mt2">Dr. Liu can read records and leave PI comments. Link stays valid until you delete it.</p>
+        <p class="xs muted mt2">${esc(c.pi||'Your PI')} can read records and leave PI comments. Link stays valid until you delete it.</p>
       </div>`;
     document.querySelector('.mf button:last-child').style.display='none';
   }catch(err){
