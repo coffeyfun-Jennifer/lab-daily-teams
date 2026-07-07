@@ -2458,8 +2458,8 @@ function dayElnPrint(recId){
 // ══════════════════════════════
 //  PAGE: TODAY DETAILS (ELN)
 // ══════════════════════════════
-function renderTodayDetails(){
-  const td=today();
+function renderTodayDetails(sub){
+  const td=sub||CUR_SUB||today();
   let rec=DB.list('records').find(r=>r.date===td);
   const cfg0=cfg();
 
