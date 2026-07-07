@@ -828,6 +828,7 @@ function renderArchive(sub){
             <td>${(a.tags||[]).map(t=>`<span class="tag tag-gray">${t}</span>`).join(' ')}</td>
             <td class="xs muted">${fsz(a.size)}</td>
             <td><div class="flex ic g2u">
+              <button class="icon-btn" onclick="openEditAtt('${a.id}')" title="Edit / Reassign project"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
               ${a.fileId?`<button class="icon-btn" onclick="dlFile('${a.fileId}')" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>`:''}
               <button class="icon-btn" onclick="delAtt('${a.id}')" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>
             </div></td>
@@ -913,6 +914,7 @@ function renderArchiveProject(projId,typeFilter){
             <td>${(a.tags||[]).map(t=>`<span class="tag tag-gray">${t}</span>`).join(' ')}</td>
             <td class="xs muted">${fsz(a.size)}</td>
             <td><div class="flex ic g2u">
+              <button class="icon-btn" onclick="openEditAtt('${a.id}')" title="Edit / Reassign project"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
               ${a.fileId?`<button class="icon-btn" onclick="dlFile('${a.fileId}')" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>`:''}
               <button class="icon-btn" onclick="delAtt('${a.id}')" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>
             </div></td>
@@ -1650,6 +1652,33 @@ function fiRow(a){
 }
 function dlFile(fid){const f=DB.find('files',fid);if(!f)return toast('File not found','err');const a=document.createElement('a');a.href=f.data;a.download=f.name;a.click()}
 function delAtt(id){if(!confirm('Delete?'))return;DB.del('atts',id);toast('Deleted');go(CUR,CUR_SUB)}
+
+function openEditAtt(attId){
+  const a=DB.find('atts',attId);if(!a)return;
+  const projs=DB.list('projects');
+  modal(`
+    <div class="mh"><h2>Edit File</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label class="fl">File</label><input class="fi" value="${esc(a.name)}" disabled></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Project</label><select class="fs" id="ea-proj"><option value="">-- None --</option>${projs.map(p=>`<option value="${p.id}" ${a.projId===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+        <div class="fg"><label class="fl">Date</label><input type="date" class="fi" id="ea-date" value="${esc(a.date||'')}"></div>
+      </div>
+      <div class="fg"><label class="fl">Description</label><input class="fi" id="ea-desc" value="${esc(a.description||'')}" placeholder="Brief description..."></div>
+      <div class="fg"><label class="fl">Tags (comma separated)</label><input class="fi" id="ea-tags" value="${esc((a.tags||[]).join(', '))}" placeholder="e.g. raw data, WB, HeLa"></div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="saveEditAtt('${attId}')">Save</button></div>
+  `);
+}
+function saveEditAtt(attId){
+  const projId=document.getElementById('ea-proj').value;
+  const date=document.getElementById('ea-date').value;
+  const description=document.getElementById('ea-desc').value;
+  const tags=document.getElementById('ea-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  DB.upd('atts',attId,{projId,date,description,tags});
+  toast('File updated!','ok');
+  closeM();
+}
 function markRev(id){DB.upd('records',id,{piReviewed:true,reviewedAt:Date.now()});toast('Marked reviewed!','ok');go(CUR,CUR_SUB)}
 function copyLink(){navigator.clipboard.writeText(location.href+'#pi').then(()=>toast('Link copied!','ok')).catch(()=>toast('Could not copy'))}
 
