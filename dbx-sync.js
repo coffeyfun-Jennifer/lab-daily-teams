@@ -380,10 +380,20 @@
     return dbxDownloadJson(`${mountPath}/data/${key}.json`);
   }
 
+  // ── Push an already-in-memory value straight to Dropbox, bypassing the
+  //    local namespaced copy entirely. Used for recovering legacy data too
+  //    large to duplicate in localStorage (which has a hard ~5-10MB
+  //    per-origin cap) without touching the un-namespaced legacy keys —
+  //    Dropbox itself has no such size problem, so the data still ends up
+  //    durably saved even though this browser can't also cache it locally ──
+  async function pushRaw(key, value) {
+    await dbxUploadJson(`${DBX_ROOT}/data/${key}.json`, value);
+  }
+
   window.LDDropbox = {
     isLoggedIn, login, logout, currentUid,
     getAuth, pullAll, wrapDB, handleCallbackIfPresent,
     pushNow, forceResyncAll, getShareLinkFor, fetchPublicJson,
-    shareDataFolder, listSharedFolders, readMemberData
+    shareDataFolder, listSharedFolders, readMemberData, pushRaw
   };
 })();

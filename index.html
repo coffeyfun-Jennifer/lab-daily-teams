@@ -1720,37 +1720,47 @@ async function forceResyncAll(){
 // legacy keys and copies into the current namespaced keys (which then sync
 // to Dropbox normally) — it never writes to or deletes the legacy keys, so
 // the original lab-daily site is completely unaffected.
-function recoverFromLegacyLocalData(){
-  const recovered=[];
-  const failed=[];
+async function recoverFromLegacyLocalData(){
+  const recovered=[]; // written locally (will sync to Dropbox as usual)
+  const remoteOnly=[]; // too big for local storage — pushed straight to Dropbox instead
+  const failed=[]; // couldn't be saved locally OR remotely
   // Smallest/most-critical keys first — localStorage has a small per-origin
   // quota (typically 5-10MB), and keeping the legacy copy untouched means
-  // this recovery temporarily needs room for BOTH copies of each key. If
-  // large attachment/file blobs blow the quota, this order ensures records
-  // and projects are already saved before that happens, instead of a single
-  // failure on one big key aborting recovery of everything else.
+  // this recovery temporarily needs room for BOTH copies of each key. This
+  // order gets records/projects saved before larger attachment/file blobs
+  // have a chance to exhaust that shared budget.
   //
   // Purely additive by id — legacy items missing from the current account
   // get appended, but nothing already here is ever removed or replaced, even
   // if it's just the seeded "Example Project" placeholder. That leftover can
   // be deleted manually afterward; it's never silently destroyed by this.
-  ['records','projects','cmts','atts','files'].forEach(k=>{
+  for(const k of ['records','projects','cmts','atts','files']){
     const legacyRaw=localStorage.getItem('ld_'+k);
-    if(!legacyRaw)return;
+    if(!legacyRaw)continue;
     let legacyVal;
-    try{legacyVal=JSON.parse(legacyRaw);}catch{return;}
-    if(!Array.isArray(legacyVal)||legacyVal.length===0)return;
+    try{legacyVal=JSON.parse(legacyRaw);}catch{continue;}
+    if(!Array.isArray(legacyVal)||legacyVal.length===0)continue;
     const current=DB.g(k)||[];
     const currentIds=new Set(current.map(item=>item&&item.id));
     const toAdd=legacyVal.filter(item=>item&&!currentIds.has(item.id));
-    if(!toAdd.length)return; // every legacy item is already present here
+    if(!toAdd.length)continue; // every legacy item is already present here
+    const merged=[...current,...toAdd];
     try{
-      DB.s(k,[...current,...toAdd]);
+      DB.s(k,merged);
       recovered.push(k);
     }catch(e){
-      failed.push(k); // e.g. QuotaExceededError on large attachment/file blobs
+      // Too large for this browser's localStorage quota alongside the
+      // untouched legacy copy — Dropbox has no such size limit, so push the
+      // merged value straight there instead. A future pullAll() (on a
+      // device/browser with more local headroom) will pick it up normally.
+      try{
+        await LDDropbox.pushRaw(k,merged);
+        remoteOnly.push(k);
+      }catch(e2){
+        failed.push(k);
+      }
     }
-  });
+  }
   // Only recover plain profile fields (name/role/lab/pi/email/inst) — never
   // touch the newer Dropbox/team-specific cfg fields that don't exist in
   // the old site's cfg shape at all.
@@ -1772,34 +1782,32 @@ function recoverFromLegacyLocalData(){
       }
     }catch{}
   }
-  return {recovered,failed};
+  return {recovered,remoteOnly,failed};
 }
 
 async function recoverLegacyData(){
   if(!confirm("This adds any records/projects from the original lab-daily site into your Dropbox account here (e.g. next to the seeded example project, which you can delete manually afterward). It never removes or replaces anything already in this account, and never touches the original lab-daily site. Continue?"))return;
-  const {recovered,failed}=recoverFromLegacyLocalData();
-  if(recovered.length){
-    toast('Recovered: '+recovered.join(', ')+' — saving to Dropbox…');
-    // Force an immediate, awaited push for each recovered key before
+  toast('Checking for recoverable data…');
+  const {recovered,remoteOnly,failed}=await recoverFromLegacyLocalData();
+  if(recovered.length||remoteOnly.length){
+    // Force an immediate, awaited push for each locally-recovered key before
     // reloading. DB.s() only *schedules* a debounced push (1.5s later) —
     // reloading right away, before that timer fires, meant the recovered
     // data never actually reached Dropbox. The next pullAll() on boot then
     // downloaded the still-stale (often empty) remote copy and silently
     // overwrote the freshly recovered local data with it, undoing the
-    // recovery on every single reload.
+    // recovery on every single reload. (remoteOnly keys are already pushed.)
     for(const k of recovered){
-      if(k==='profile')continue; // 'profile' means the cfg key, pushed below
+      if(k==='profile'){try{await LDDropbox.pushNow('cfg');}catch(e){}continue;}
       try{await LDDropbox.pushNow(k);}catch(e){/* local copy is still safe even if this push fails */}
     }
-    if(recovered.includes('profile')){
-      try{await LDDropbox.pushNow('cfg');}catch(e){}
-    }
-    let msg='Recovered and saved to Dropbox: '+recovered.join(', ');
-    if(failed.length)msg+=' — could not recover '+failed.join(', ')+' (browser storage full)';
+    let msg='Recovered: '+[...recovered,...remoteOnly].join(', ');
+    if(remoteOnly.length)msg+=' (saved to Dropbox — too large to also keep a local copy in this browser)';
+    if(failed.length)msg+=' — could not recover '+failed.join(', ')+' at all (browser storage full and Dropbox save also failed)';
     toast(msg,'t-ok');
     location.reload();
   }else if(failed.length){
-    toast('Could not recover '+failed.join(', ')+' — your browser storage is full. Try freeing space (e.g. clearing old exports) and try again.','err');
+    toast('Could not recover '+failed.join(', ')+' — your browser storage is full and saving straight to Dropbox also failed. Try freeing space and try again.','err');
   }else{
     toast('No recoverable data found here (or this account already has data).','err');
   }
