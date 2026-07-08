@@ -121,10 +121,14 @@
   }
 
   // ── Token refresh ──
-  async function ensureFreshToken() {
+  // `force` bypasses the expiry check — needed when Dropbox rejects a
+  // not-yet-expired token as invalid (e.g. stale token from before a
+  // Development-mode user-limit issue was resolved), since the normal
+  // expiry-based refresh would never fire for it otherwise.
+  async function ensureFreshToken(force) {
     const a = getAuth();
     if (!a) return null;
-    if (Date.now() < a.expires_at - 5 * 60 * 1000) return a.access_token;
+    if (!force && Date.now() < a.expires_at - 5 * 60 * 1000) return a.access_token;
     const body = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: a.refresh_token, client_id: DBX_APP_KEY });
     const res = await fetch('https://api.dropboxapi.com/oauth2/token', { method: 'POST', body });
     const data = await res.json();
@@ -136,8 +140,12 @@
   }
 
   // ── Low-level Dropbox API call (RPC-style endpoints) ──
-  async function dbxApi(endpoint, args, tokenOverride) {
-    const token = tokenOverride || await ensureFreshToken();
+  // Every call retries exactly once, forcing a token refresh, if Dropbox
+  // reports invalid_access_token — this recovers from a stale saved token
+  // without the user having to manually reconnect Dropbox.
+  async function dbxApi(endpoint, args, tokenOverride, isRetry) {
+    const token = tokenOverride || await ensureFreshToken(isRetry);
+    if (!token) throw new Error('Dropbox session expired — please reconnect.');
     const res = await fetch(`https://api.dropboxapi.com/2/${endpoint}`, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -145,14 +153,16 @@
     });
     if (!res.ok) {
       const err = await res.text();
+      if (!isRetry && !tokenOverride && err.includes('invalid_access_token')) return dbxApi(endpoint, args, null, true);
       throw new Error(`Dropbox API ${endpoint} failed: ${err}`);
     }
     const text = await res.text();
     return text ? JSON.parse(text) : {};
   }
 
-  async function dbxUploadJson(path, obj) {
-    const token = await ensureFreshToken();
+  async function dbxUploadJson(path, obj, isRetry) {
+    const token = await ensureFreshToken(isRetry);
+    if (!token) throw new Error('Dropbox session expired — please reconnect.');
     const apiArg = { path, mode: 'overwrite', mute: true };
     const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
       method: 'POST',
@@ -163,17 +173,26 @@
       },
       body: JSON.stringify(obj)
     });
-    if (!res.ok) throw new Error('Dropbox upload failed: ' + await res.text());
+    if (!res.ok) {
+      const err = await res.text();
+      if (!isRetry && err.includes('invalid_access_token')) return dbxUploadJson(path, obj, true);
+      throw new Error('Dropbox upload failed: ' + err);
+    }
   }
 
-  async function dbxDownloadJson(path) {
-    const token = await ensureFreshToken();
+  async function dbxDownloadJson(path, isRetry) {
+    const token = await ensureFreshToken(isRetry);
+    if (!token) throw new Error('Dropbox session expired — please reconnect.');
     const res = await fetch('https://content.dropboxapi.com/2/files/download', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Dropbox-API-Arg': JSON.stringify({ path }) }
     });
     if (res.status === 409) return undefined; // path not found (first-time user)
-    if (!res.ok) throw new Error('Dropbox download failed: ' + await res.text());
+    if (!res.ok) {
+      const err = await res.text();
+      if (!isRetry && err.includes('invalid_access_token')) return dbxDownloadJson(path, true);
+      throw new Error('Dropbox download failed: ' + err);
+    }
     return res.json();
   }
 
