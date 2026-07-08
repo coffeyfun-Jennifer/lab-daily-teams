@@ -161,7 +161,10 @@
     const res = await fetch(`https://api.dropboxapi.com/2/${endpoint}`, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: args ? JSON.stringify(args) : null
+      // Dropbox expects the literal JSON body "null" for parameterless calls
+      // (e.g. users/get_current_account) — an actually-empty body alongside
+      // Content-Type: application/json gets rejected as undecodable JSON.
+      body: JSON.stringify(args ?? null)
     });
     if (!res.ok) {
       const err = await res.text();
