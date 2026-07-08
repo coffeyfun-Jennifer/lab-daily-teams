@@ -1775,13 +1775,27 @@ function recoverFromLegacyLocalData(){
   return {recovered,failed};
 }
 
-function recoverLegacyData(){
+async function recoverLegacyData(){
   if(!confirm("This adds any records/projects from the original lab-daily site into your Dropbox account here (e.g. next to the seeded example project, which you can delete manually afterward). It never removes or replaces anything already in this account, and never touches the original lab-daily site. Continue?"))return;
   const {recovered,failed}=recoverFromLegacyLocalData();
   if(recovered.length){
-    let msg='Recovered: '+recovered.join(', ');
+    toast('Recovered: '+recovered.join(', ')+' — saving to Dropbox…');
+    // Force an immediate, awaited push for each recovered key before
+    // reloading. DB.s() only *schedules* a debounced push (1.5s later) —
+    // reloading right away, before that timer fires, meant the recovered
+    // data never actually reached Dropbox. The next pullAll() on boot then
+    // downloaded the still-stale (often empty) remote copy and silently
+    // overwrote the freshly recovered local data with it, undoing the
+    // recovery on every single reload.
+    for(const k of recovered){
+      if(k==='profile')continue; // 'profile' means the cfg key, pushed below
+      try{await LDDropbox.pushNow(k);}catch(e){/* local copy is still safe even if this push fails */}
+    }
+    if(recovered.includes('profile')){
+      try{await LDDropbox.pushNow('cfg');}catch(e){}
+    }
+    let msg='Recovered and saved to Dropbox: '+recovered.join(', ');
     if(failed.length)msg+=' — could not recover '+failed.join(', ')+' (browser storage full)';
-    msg+=' — syncing to Dropbox…';
     toast(msg,'t-ok');
     location.reload();
   }else if(failed.length){
