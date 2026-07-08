@@ -19,7 +19,7 @@
   const DBX_REDIRECT_URI = location.origin + location.pathname;
   const AUTH_KEY = 'dbx_auth'; // {access_token, refresh_token, account_id, expires_at, name, email}
   const PKCE_KEY = 'dbx_pkce'; // transient: {verifier, state}
-  const SYNC_KEYS = ['cfg', 'records', 'projects', 'atts', 'files', 'cmts'];
+  const SYNC_KEYS = ['cfg', 'records', 'projects', 'atts', 'files', 'cmts', 'team'];
   const DEBOUNCE_MS = 1500;
 
   // ── PKCE helpers ──
@@ -233,8 +233,43 @@
     };
   }
 
+  // ── Force an immediate (non-debounced) push, e.g. before generating a
+  //    share link so the file is guaranteed to exist first ──
+  async function pushNow(k) {
+    clearTimeout(pushTimers[k]);
+    await doPush(k);
+  }
+
+  // ── Get (or create) a shareable link to one of this account's own
+  //    synced data files — used to distribute the team roster ──
+  async function getShareLinkFor(key) {
+    const path = `/data/${key}.json`;
+    try {
+      const res = await dbxApi('sharing/create_shared_link_with_settings', { path });
+      return res.url;
+    } catch (e) {
+      // Link already exists — look it up instead of failing
+      if (String(e.message).includes('shared_link_already_exists')) {
+        const res = await dbxApi('sharing/list_shared_links', { path, direct_only: true });
+        if (res.links && res.links[0]) return res.links[0].url;
+      }
+      throw e;
+    }
+  }
+
+  // ── Fetch JSON from a public Dropbox shared link (no login needed —
+  //    used by team members to pull the roster their PI shared) ──
+  async function fetchPublicJson(link) {
+    let url = link.trim();
+    url = url.includes('dl=0') ? url.replace('dl=0', 'dl=1') : (url.includes('dl=1') ? url : url + (url.includes('?') ? '&dl=1' : '?dl=1'));
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Could not load that link (HTTP ' + res.status + ')');
+    return res.json();
+  }
+
   window.LDDropbox = {
     isLoggedIn, login, logout, currentUid,
-    getAuth, pullAll, wrapDB, handleCallbackIfPresent
+    getAuth, pullAll, wrapDB, handleCallbackIfPresent,
+    pushNow, getShareLinkFor, fetchPublicJson
   };
 })();
