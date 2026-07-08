@@ -270,6 +270,7 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
       <div class="nav-sub-item" onclick="go('pi','weekly')">Weekly Summary</div>
       <div class="nav-sub-item" onclick="go('pi','monthly')">Monthly Summary</div>
       <div class="nav-sub-item" onclick="go('pi','comments')">Comments</div>
+      <div class="nav-sub-item" onclick="go('pi','team')">Team Dashboard</div>
     </div>
     <div class="nav-item" id="nav-templates" onclick="go('templates')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><path d="M13 17h8M17 13v8"/></svg>
@@ -950,8 +951,13 @@ function renderPI(sub){
     <button class="btn btn-primary btn-sm" onclick="exportPrint()">⬇ PDF</button>
   `);
 
-  const tabs=[['today','Today'],['weekly','This Week'],['monthly','This Month'],['comments','All Comments']];
+  const tabs=[['today','Today'],['weekly','This Week'],['monthly','This Month'],['comments','All Comments'],['team','Team']];
   const tabHtml=`<div class="tabs">${tabs.map(([v,l])=>`<div class="tab ${sub===v?'on':''}" onclick="go('pi','${v}')">${l}</div>`).join('')}</div>`;
+
+  if(sub==='team'){
+    renderPITeamPanel(tabHtml);
+    return;
+  }
 
   if(sub==='comments'){
     const allCmts=DB.list('cmts');
@@ -984,30 +990,143 @@ function renderPI(sub){
       <div class="stat"><div class="stat-label">Experiments</div><div class="stat-val">${totalExps}</div></div>
       <div class="stat"><div class="stat-label">Researcher</div><div class="stat-val" style="font-size:14px">${esc(cfg0.name)}</div><div class="stat-sub">${esc(cfg0.lab)}</div></div>
     </div>
-    ${filtRecs.length?filtRecs.map(r=>{
-      const exps=r.experiments||[];
-      const atts=DB.list('atts').filter(a=>a.date===r.date);
-      const cmts=DB.list('cmts').filter(c=>c.recId===r.id);
-      return`<div class="card mb3" style="border-left:3px solid var(--primary)">
-        <div class="ch">
-          <div><div class="card-title">${fd(r.date)}</div></div>
-          <div class="flex ic g2u">
-            <span class="badge ${r.piReviewed?'b-green':'b-orange'}">${r.piReviewed?'Reviewed':'Pending'}</span>
-            ${!r.piReviewed?`<button class="btn btn-success btn-sm" onclick="markRev('${r.id}')">✓ Review</button>`:''}
-            <button class="btn btn-secondary btn-sm" onclick="openCmtModal('${r.id}')">💬</button>
-          </div>
-        </div>
-        <p class="sm mb3" style="white-space:pre-wrap;color:var(--text2)">${esc(r.summary||'')}</p>
-        ${exps.length?`<div class="mb2 sm muted semi">Experiments (${exps.length})</div>
-        ${exps.map(e=>{const pr=DB.find('projects',e.projId);return`<div class="fi-row mb2">
-          <div class="fi-info"><div class="fi-name">${esc(e.title||'Untitled')}${pr?` <span class="badge b-blue">${esc(pr.name)}</span>`:''}</div>
-          ${e.results?`<div class="fi-meta">${esc(e.results.slice(0,100))}</div>`:''}
-        </div>`;}).join('')}`:''}
-        ${atts.length?`<div class="sm muted mt2">📎 ${atts.length} file${atts.length!==1?'s':''} attached</div>`:''}
-        ${cmts.length?`<div class="mt2">${cmts.map(c=>`<div class="cmt"><div class="avatar" style="width:22px;height:22px;font-size:9px;background:${c.role==='pi'?'#7c3aed':'var(--primary)'}">${c.role==='pi'?'PI':'R'}</div><div class="cmt-body"><div class="cmt-meta">${c.role==='pi'?'PI':'R'} · ${ft(c.at)}</div><div class="sm">${esc(c.text)}</div></div></div>`).join('')}</div>`:''}
-      </div>`;
-    }).join(''):`<div class="card" style="text-align:center;padding:36px"><p class="muted">No records for this period.</p></div>`}
+    ${renderPIRecordsBlock(filtRecs,DB.list('atts'),DB.list('cmts'),projects,cfg0.name,false)}
   `);
+}
+
+// Shared record-card renderer for both the self-view PI tabs above and the
+// Team Dashboard below — `readOnly` hides the Review/Comment controls,
+// since a team member's shared Dropbox folder is viewer-only access, so
+// the PI's client has nowhere to write a review/comment back to.
+function renderPIRecordsBlock(recordsArr,attsAll,cmtsAll,projectsAll,ownerName,readOnly){
+  if(!recordsArr.length)return`<div class="card" style="text-align:center;padding:36px"><p class="muted">No records for this period.</p></div>`;
+  return recordsArr.map(r=>{
+    const exps=r.experiments||[];
+    const atts=(attsAll||[]).filter(a=>a.date===r.date);
+    const cmts=(cmtsAll||[]).filter(c=>c.recId===r.id);
+    return`<div class="card mb3" style="border-left:3px solid var(--primary)">
+      <div class="ch">
+        <div><div class="card-title">${fd(r.date)}</div></div>
+        <div class="flex ic g2u">
+          <span class="badge ${r.piReviewed?'b-green':'b-orange'}">${r.piReviewed?'Reviewed':'Pending'}</span>
+          ${!readOnly&&!r.piReviewed?`<button class="btn btn-success btn-sm" onclick="markRev('${r.id}')">✓ Review</button>`:''}
+          ${!readOnly?`<button class="btn btn-secondary btn-sm" onclick="openCmtModal('${r.id}')">💬</button>`:''}
+        </div>
+      </div>
+      <p class="sm mb3" style="white-space:pre-wrap;color:var(--text2)">${esc(r.summary||'')}</p>
+      ${exps.length?`<div class="mb2 sm muted semi">Experiments (${exps.length})</div>
+      ${exps.map(e=>{const pr=(projectsAll||[]).find(p=>p.id===e.projId);return`<div class="fi-row mb2">
+        <div class="fi-info"><div class="fi-name">${esc(e.title||'Untitled')}${pr?` <span class="badge b-blue">${esc(pr.name)}</span>`:''}</div>
+        ${e.results?`<div class="fi-meta">${esc(e.results.slice(0,100))}</div>`:''}
+      </div>`;}).join('')}`:''}
+      ${atts.length?`<div class="sm muted mt2">📎 ${atts.length} file${atts.length!==1?'s':''} attached</div>`:''}
+      ${cmts.length?`<div class="mt2">${cmts.map(c=>`<div class="cmt"><div class="avatar" style="width:22px;height:22px;font-size:9px;background:${c.role==='pi'?'#7c3aed':'var(--primary)'}">${c.role==='pi'?'PI':'R'}</div><div class="cmt-body"><div class="cmt-meta">${c.role==='pi'?'PI':'R'} · ${ft(c.at)}</div><div class="sm">${esc(c.text)}</div></div></div>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── PI Team Dashboard: browse each team member's data via a Dropbox
+//    folder they've shared natively (see shareMyDropboxFolder in Settings).
+//    Folders are matched to roster entries by owner display name since
+//    every member's shared folder has the identical name ("LabDaily") —
+//    ambiguous/unmatched ones fall back to a manual picker. ──
+function renderPITeamPanel(tabHtml){
+  const team=DB.g('team');
+  if(!team){
+    pg(tabHtml+`<div class="card" style="text-align:center;padding:36px"><p class="muted">Join or create a Lab Team in Settings first.</p></div>`);
+    return;
+  }
+  const c=cfg();
+  const folders=DB.g('piSharedFolders')||[];
+  const matches=c.piTeamMatches||{};
+  const members=team.members||[];
+
+  pg(tabHtml+`
+    <div class="card mb4">
+      <div class="ch"><div class="card-title" style="margin:0">Discovered Shared Folders</div>
+        <button class="btn btn-secondary btn-sm" onclick="discoverSharedFolders()">🔄 Discover Shared Folders</button></div>
+      <p class="sm muted mb3">Folders your team members have shared with your Dropbox account. If someone's missing, ask them to click "Share my folder" in Settings, then make sure you've accepted the invite in your own Dropbox.</p>
+      ${folders.length?renderFolderMatchRows(folders,members,matches):'<p class="sm muted">No shared folders found yet. Click "Discover Shared Folders" above.</p>'}
+    </div>
+    <div id="pi-team-member-view"></div>
+  `);
+}
+
+function renderFolderMatchRows(folders,members,matches){
+  return folders.map(f=>{
+    const matchIdx=matches[f.shared_folder_id];
+    const matched=matchIdx!==undefined&&members[matchIdx];
+    const ownerNames=(f.owner_display_names||[]).join(', ');
+    return`<div class="flex ic jb" style="padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div class="semi">${esc(f.name||'Unnamed folder')}</div>
+        <div class="xs muted">${ownerNames?'Shared by '+esc(ownerNames):'Owner unknown'}${f.path_lower?'':' · not yet mounted in your Dropbox'}</div>
+      </div>
+      <div class="flex ic g2u">
+        ${matched?`<span class="badge b-blue">${esc(matched.name||matched.email)}</span>`:`
+        <select class="fs" style="padding:4px 8px;font-size:12px" onchange="setTeamMatch('${f.shared_folder_id}',this.value)">
+          <option value="">— match to member —</option>
+          ${members.map((m,i)=>`<option value="${i}">${esc(m.name||m.email)}</option>`).join('')}
+        </select>`}
+        <button class="btn btn-secondary btn-sm" ${!matched||!f.path_lower?'disabled':''} onclick="viewTeamMember('${f.shared_folder_id}')">View</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function discoverSharedFolders(){
+  toast('Looking for shared folders…');
+  try{
+    const folders=await LDDropbox.listSharedFolders();
+    DB.s('piSharedFolders',folders);
+    const team=DB.g('team');
+    const members=(team&&team.members)||[];
+    const c=cfg();
+    const matches={...(c.piTeamMatches||{})};
+    folders.forEach(f=>{
+      if(matches[f.shared_folder_id]!==undefined)return; // never clobber an existing (possibly manual) match
+      const owners=(f.owner_display_names||[]).map(n=>n.toLowerCase());
+      const candidates=members.map((m,i)=>({i,name:(m.name||'').toLowerCase()})).filter(m=>m.name&&owners.includes(m.name));
+      if(candidates.length===1)matches[f.shared_folder_id]=candidates[0].i;
+    });
+    DB.s('cfg',{...c,piTeamMatches:matches});
+    toast(`Found ${folders.length} shared folder${folders.length!==1?'s':''}`,'t-ok');
+  }catch(e){
+    toast('Could not list shared folders: '+e.message,'err');
+  }
+  go('pi','team');
+}
+
+function setTeamMatch(folderId,value){
+  const c=cfg();
+  const matches={...(c.piTeamMatches||{})};
+  if(value==='')delete matches[folderId];
+  else matches[folderId]=Number(value);
+  DB.s('cfg',{...c,piTeamMatches:matches});
+  go('pi','team');
+}
+
+const TEAM_DATA_CACHE={};
+async function viewTeamMember(folderId){
+  const folder=(DB.g('piSharedFolders')||[]).find(f=>f.shared_folder_id===folderId);
+  const el=document.getElementById('pi-team-member-view');
+  if(!folder||!folder.path_lower){toast("This folder isn't mounted in your Dropbox yet",'err');return;}
+  el.innerHTML='<p class="sm muted">⏳ Loading…</p>';
+  try{
+    if(!TEAM_DATA_CACHE[folderId]){
+      const[records,atts,projects,cmts]=await Promise.all(
+        ['records','atts','projects','cmts'].map(k=>LDDropbox.readMemberData(folder.path_lower,k))
+      );
+      TEAM_DATA_CACHE[folderId]={records:records||[],atts:atts||[],projects:projects||[],cmts:cmts||[]};
+    }
+    const d=TEAM_DATA_CACHE[folderId];
+    const matchIdx=(cfg().piTeamMatches||{})[folderId];
+    const member=((DB.g('team')||{}).members||[])[matchIdx];
+    const name=member?(member.name||member.email):(folder.owner_display_names||[])[0]||folder.name;
+    el.innerHTML=`<div class="card-title mb3">${esc(name)}'s Records</div>`+renderPIRecordsBlock(d.records.slice().reverse(),d.atts,d.cmts,d.projects,name,true);
+  }catch(e){
+    el.innerHTML=`<p class="sm" style="color:var(--danger)">❌ Could not load this member's data: ${esc(e.message)}</p>`;
+  }
 }
 
 // ══════════════════════════════
@@ -1306,11 +1425,19 @@ function renderSettings(){
         </div>`:'<p class="xs muted mt2">Add your GitHub token above to enable PI sharing.</p>'}
       </div>
       <div class="card mb4">
+        <div class="card-title mb3">📁 Share Data Folder with PI (Dropbox)</div>
+        <p class="sm muted mb3">Gives ${esc(c.pi||'your PI')} native, always-current, read-only access to your whole LabDaily folder via Dropbox — no manual re-publishing needed. They'll need to accept the share in their own Dropbox first.</p>
+        <button class="btn btn-primary btn-sm" id="dbx-share-btn" onclick="shareMyDropboxFolder()" ${!c.piEmail?'disabled title="Add a PI email above first"':''}>📁 Share my folder with ${esc(c.piEmail||'PI')}</button>
+        <div id="dbx-share-status" class="mt2"></div>
+        ${c.piFolderSharedAt?`<p class="xs muted mt2">Last shared ${new Date(c.piFolderSharedAt).toLocaleString()}</p>`:''}
+      </div>
+      <div class="card mb4">
         <div class="card-title mb3">💾 Backup & Export</div>
         <p class="sm muted mb3">All data is stored in your browser localStorage. Export regularly.</p>
         <div class="flex col g2u">
           <button class="btn btn-secondary" onclick="exportData()">⬇ Export All Data (JSON)</button>
           <label class="btn btn-secondary" style="cursor:pointer">⬆ Import Data (JSON)<input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
+          <button class="btn btn-secondary" onclick="forceResyncAll()">🔄 Re-sync All Data to Dropbox</button>
         </div>
       </div>
       <div class="card">
@@ -1336,7 +1463,9 @@ function saveProfile(){
     gistId:prev.gistId||'',
     teamRole:prev.teamRole||'',
     teamLink:prev.teamLink||'',
-    teamIsOwner:prev.teamIsOwner||false
+    teamIsOwner:prev.teamIsOwner||false,
+    piFolderSharedAt:prev.piFolderSharedAt||0,
+    piTeamMatches:prev.piTeamMatches||{}
   };
   DB.s('cfg',c);
   document.getElementById('uname').textContent=c.name||'Researcher';
@@ -1551,6 +1680,33 @@ function leaveTeam(){
   DB.s('cfg',{...cfg(),teamRole:'',teamLink:'',teamIsOwner:false});
   toast('Left team');
   renderSettings();
+}
+
+async function shareMyDropboxFolder(){
+  const c=cfg();
+  if(!c.piEmail)return toast('Add a PI email above first','err');
+  const status=document.getElementById('dbx-share-status');
+  const btn=document.getElementById('dbx-share-btn');
+  if(btn){btn.disabled=true;btn.textContent='Sharing…';}
+  status.innerHTML='<p class="sm" style="color:var(--primary)">⏳ Sharing folder…</p>';
+  try{
+    await LDDropbox.shareDataFolder(c.piEmail);
+    DB.s('cfg',{...cfg(),piFolderSharedAt:Date.now()});
+    status.innerHTML=`<p class="sm" style="color:var(--success)">✅ Shared! ${esc(c.piEmail)} will get a Dropbox notification to accept.</p>`;
+  }catch(e){
+    status.innerHTML=`<p class="sm" style="color:var(--danger)">❌ ${esc(e.message)}</p>`;
+  }
+  renderSettings();
+}
+
+async function forceResyncAll(){
+  toast('Re-syncing all data to Dropbox…');
+  try{
+    await LDDropbox.forceResyncAll();
+    toast('Re-synced all data to Dropbox!','t-ok');
+  }catch(e){
+    toast('Re-sync failed: '+e.message,'err');
+  }
 }
 
 function exportData(){

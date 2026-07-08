@@ -15,12 +15,16 @@
 //      pulls the latest copy down on login.
 // ══════════════════════════════════════════════════════════
 (function () {
-  const DBX_APP_KEY = 'snnh67wiep8qaep';
+  const DBX_APP_KEY = 'u8g8u5b61hxesft'; // Full Dropbox access — replaces the old Scoped App (App Folder) key
   const DBX_REDIRECT_URI = location.origin + location.pathname;
-  const AUTH_KEY = 'dbx_auth'; // {access_token, refresh_token, account_id, expires_at, name, email}
+  const AUTH_KEY = 'dbx_auth'; // {access_token, refresh_token, account_id, expires_at, name, email, appKey}
   const PKCE_KEY = 'dbx_pkce'; // transient: {verifier, state}
   const SYNC_KEYS = ['cfg', 'records', 'projects', 'atts', 'files', 'cmts', 'team'];
   const DEBOUNCE_MS = 1500;
+  // Absolute root for all of this app's Dropbox paths. Full Dropbox apps
+  // (needed for cross-account folder sharing) can't rely on the implicit
+  // App-folder-relative paths a Scoped App gets, so every path is explicit.
+  const DBX_ROOT = '/LabDaily';
 
   // ── PKCE helpers ──
   function b64url(buf) {
@@ -37,10 +41,18 @@
   }
 
   // ── Auth state ──
+  // Stamped with the app key that minted it, so a token saved under a
+  // previous Dropbox App (e.g. before switching to Full Dropbox access)
+  // is treated as logged-out immediately, instead of only discovered
+  // after a failed network round-trip.
   function getAuth() {
-    try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); } catch { return null; }
+    try {
+      const a = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
+      if (a && a.appKey && a.appKey !== DBX_APP_KEY) return null;
+      return a;
+    } catch { return null; }
   }
-  function setAuth(a) { localStorage.setItem(AUTH_KEY, JSON.stringify(a)); }
+  function setAuth(a) { localStorage.setItem(AUTH_KEY, JSON.stringify({ ...a, appKey: DBX_APP_KEY })); }
   function clearAuth() { localStorage.removeItem(AUTH_KEY); }
 
   function isLoggedIn() {
@@ -200,7 +212,7 @@
   async function pullAll() {
     for (const k of SYNC_KEYS) {
       try {
-        const val = await dbxDownloadJson(`/data/${k}.json`);
+        const val = await dbxDownloadJson(`${DBX_ROOT}/data/${k}.json`);
         if (val !== undefined) localStorage.setItem(nsKey(k), JSON.stringify(val));
       } catch (e) {
         console.error('Dropbox pull failed for', k, e);
@@ -223,7 +235,7 @@
     try {
       const raw = localStorage.getItem(nsKey(k));
       const val = raw ? JSON.parse(raw) : null;
-      await dbxUploadJson(`/data/${k}.json`, val);
+      await dbxUploadJson(`${DBX_ROOT}/data/${k}.json`, val);
     } catch (e) {
       console.error('Dropbox push failed for', k, e);
     } finally {
@@ -259,10 +271,28 @@
     await doPush(k);
   }
 
+  // ── Re-push every synced key right now — a manual escape hatch for
+  //    right after reconnecting under a new Dropbox App/path scheme,
+  //    since the debounced background push only fires on the next edit ──
+  async function forceResyncAll() {
+    for (const k of SYNC_KEYS) await pushNow(k);
+  }
+
+  // ── Make sure the app's root folder exists — sharing/share_folder
+  //    needs a real folder, unlike files/upload which auto-creates
+  //    parent folders along the way ──
+  async function ensureRootFolder() {
+    try {
+      await dbxApi('files/create_folder_v2', { path: DBX_ROOT, autorename: false });
+    } catch (e) {
+      if (!String(e.message).includes('path/conflict')) throw e; // already exists — fine
+    }
+  }
+
   // ── Get (or create) a shareable link to one of this account's own
   //    synced data files — used to distribute the team roster ──
   async function getShareLinkFor(key) {
-    const path = `/data/${key}.json`;
+    const path = `${DBX_ROOT}/data/${key}.json`;
     try {
       const res = await dbxApi('sharing/create_shared_link_with_settings', { path });
       return res.url;
@@ -286,9 +316,71 @@
     return res.json();
   }
 
+  // ── Member side: share this account's whole LabDaily folder with the
+  //    PI's Dropbox account (native Dropbox folder sharing, viewer-only —
+  //    the PI's app never needs write access to a member's own data) ──
+  async function shareDataFolder(piEmail) {
+    await ensureRootFolder();
+    let sharedFolderId;
+    try {
+      const res = await dbxApi('sharing/share_folder', { path: DBX_ROOT });
+      sharedFolderId = res['.tag'] === 'async_job_id'
+        ? await pollShareFolderJob(res.async_job_id)
+        : res.shared_folder_id;
+    } catch (e) {
+      // Already a shared folder (e.g. re-sharing with a 2nd PI later) —
+      // look up its id instead of failing.
+      const existing = await findSharedFolderId(DBX_ROOT);
+      if (!existing) throw e;
+      sharedFolderId = existing;
+    }
+    await dbxApi('sharing/add_folder_member', {
+      shared_folder_id: sharedFolderId,
+      members: [{ member: { '.tag': 'email', email: piEmail }, access_level: { '.tag': 'viewer' } }],
+      quiet: false
+    });
+    return sharedFolderId;
+  }
+
+  async function pollShareFolderJob(jobId, attempts, delayMs) {
+    attempts = attempts || 12; delayMs = delayMs || 1500;
+    for (let i = 0; i < attempts; i++) {
+      const st = await dbxApi('sharing/check_share_job_status', { async_job_id: jobId });
+      if (st['.tag'] === 'complete') return st.shared_folder_id;
+      if (st['.tag'] === 'failed') throw new Error('Dropbox folder-sharing job failed.');
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+    throw new Error('Timed out waiting for Dropbox to finish sharing the folder.');
+  }
+
+  async function findSharedFolderId(path) {
+    try {
+      const res = await dbxApi('sharing/list_folders', { limit: 100 });
+      const hit = (res.entries || []).find(f => (f.path_lower || '').toLowerCase() === path.toLowerCase());
+      return hit ? hit.shared_folder_id : null;
+    } catch { return null; }
+  }
+
+  // ── PI side: discover folders team members have shared with this
+  //    account, and read a member's synced data out of one ──
+  async function listSharedFolders() {
+    let res = await dbxApi('sharing/list_folders', { limit: 100 });
+    let entries = res.entries || [];
+    while (res.cursor) {
+      res = await dbxApi('sharing/list_folders/continue', { cursor: res.cursor });
+      entries = entries.concat(res.entries || []);
+    }
+    return entries;
+  }
+
+  async function readMemberData(mountPath, key) {
+    return dbxDownloadJson(`${mountPath}/data/${key}.json`);
+  }
+
   window.LDDropbox = {
     isLoggedIn, login, logout, currentUid,
     getAuth, pullAll, wrapDB, handleCallbackIfPresent,
-    pushNow, getShareLinkFor, fetchPublicJson
+    pushNow, forceResyncAll, getShareLinkFor, fetchPublicJson,
+    shareDataFolder, listSharedFolders, readMemberData
   };
 })();
