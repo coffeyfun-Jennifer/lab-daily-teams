@@ -1729,6 +1729,11 @@ function recoverFromLegacyLocalData(){
   // large attachment/file blobs blow the quota, this order ensures records
   // and projects are already saved before that happens, instead of a single
   // failure on one big key aborting recovery of everything else.
+  //
+  // Purely additive by id — legacy items missing from the current account
+  // get appended, but nothing already here is ever removed or replaced, even
+  // if it's just the seeded "Example Project" placeholder. That leftover can
+  // be deleted manually afterward; it's never silently destroyed by this.
   ['records','projects','cmts','atts','files'].forEach(k=>{
     const legacyRaw=localStorage.getItem('ld_'+k);
     if(!legacyRaw)return;
@@ -1736,9 +1741,11 @@ function recoverFromLegacyLocalData(){
     try{legacyVal=JSON.parse(legacyRaw);}catch{return;}
     if(!Array.isArray(legacyVal)||legacyVal.length===0)return;
     const current=DB.g(k)||[];
-    if(current.length>0)return; // never clobber real existing data here
+    const currentIds=new Set(current.map(item=>item&&item.id));
+    const toAdd=legacyVal.filter(item=>item&&!currentIds.has(item.id));
+    if(!toAdd.length)return; // every legacy item is already present here
     try{
-      DB.s(k,legacyVal);
+      DB.s(k,[...current,...toAdd]);
       recovered.push(k);
     }catch(e){
       failed.push(k); // e.g. QuotaExceededError on large attachment/file blobs
@@ -1769,7 +1776,7 @@ function recoverFromLegacyLocalData(){
 }
 
 function recoverLegacyData(){
-  if(!confirm("This copies any records from the original lab-daily site into your Dropbox account here. It will NOT modify or delete anything on the original lab-daily site. Continue?"))return;
+  if(!confirm("This adds any records/projects from the original lab-daily site into your Dropbox account here (e.g. next to the seeded example project, which you can delete manually afterward). It never removes or replaces anything already in this account, and never touches the original lab-daily site. Continue?"))return;
   const {recovered,failed}=recoverFromLegacyLocalData();
   if(recovered.length){
     let msg='Recovered: '+recovered.join(', ');
