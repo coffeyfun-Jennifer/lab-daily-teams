@@ -1411,8 +1411,13 @@ function renderTeamCard(){
         <button class="btn btn-secondary" onclick="addTeamMember()">+ Add</button></div>
       </div>
       <div class="fg"><label class="fl">Team Link <span class="xs muted">(send to new members so they can join)</span></label>
-        <div class="flex g2u"><input class="fi" id="team-link-out" value="${esc(c.teamLink||'')}" readonly>
+        ${c.teamLink?`
+        <div class="flex g2u"><input class="fi" id="team-link-out" value="${esc(c.teamLink)}" readonly>
         <button class="btn btn-secondary" onclick="navigator.clipboard.writeText(document.getElementById('team-link-out').value).then(()=>toast('Copied!','t-ok'))">Copy</button></div>
+        `:`
+        <p class="xs muted mb2">No link saved yet (an earlier sync may have failed) — generate one now.</p>
+        <button class="btn btn-secondary" id="team-link-gen-btn" onclick="generateTeamLink()">Generate Link</button>
+        `}
       </div>
     `:`<button class="btn btn-danger btn-sm" onclick="leaveTeam()">Leave Team</button>`}
   </div>`;
@@ -1448,6 +1453,23 @@ async function createTeam(){
     const link=await LDDropbox.getShareLinkFor('team');
     DB.s('cfg',{...cfg(),teamRole:myRole,teamLink:link,teamIsOwner:true});
     toast('Team created!','t-ok');
+  }catch(e){
+    toast('Could not generate share link: '+e.message,'err');
+  }
+  renderSettings();
+}
+
+// Retries the same share-link step createTeam() does, for teams whose
+// link never got saved the first time (e.g. a Dropbox API error at
+// creation time) — owner-only, called from the "Generate Link" button.
+async function generateTeamLink(){
+  const btn=document.getElementById('team-link-gen-btn');
+  if(btn){btn.disabled=true;btn.textContent='Generating…';}
+  try{
+    await LDDropbox.pushNow('team');
+    const link=await LDDropbox.getShareLinkFor('team');
+    DB.s('cfg',{...cfg(),teamLink:link});
+    toast('Team link ready!','t-ok');
   }catch(e){
     toast('Could not generate share link: '+e.message,'err');
   }
