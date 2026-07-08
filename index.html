@@ -1438,6 +1438,7 @@ function renderSettings(){
           <button class="btn btn-secondary" onclick="exportData()">⬇ Export All Data (JSON)</button>
           <label class="btn btn-secondary" style="cursor:pointer">⬆ Import Data (JSON)<input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
           <button class="btn btn-secondary" onclick="forceResyncAll()">🔄 Re-sync All Data to Dropbox</button>
+          <button class="btn btn-secondary" onclick="recoverLegacyData()">📥 Recover Data from lab-daily</button>
         </div>
       </div>
       <div class="card">
@@ -1706,6 +1707,59 @@ async function forceResyncAll(){
     toast('Re-synced all data to Dropbox!','t-ok');
   }catch(e){
     toast('Re-sync failed: '+e.message,'err');
+  }
+}
+
+// One-way, read-only recovery from the original lab-daily site's data.
+// GitHub Pages serves /lab-daily/ and /lab-daily-teams/ under the same
+// origin, so localStorage is shared — the old site's plain (un-namespaced)
+// ld_records/ld_projects/etc keys are still sitting there even though this
+// account's Dropbox-namespaced keys are empty. This only ever READS those
+// legacy keys and copies into the current namespaced keys (which then sync
+// to Dropbox normally) — it never writes to or deletes the legacy keys, so
+// the original lab-daily site is completely unaffected.
+function recoverFromLegacyLocalData(){
+  const recovered=[];
+  ['records','projects','atts','files','cmts'].forEach(k=>{
+    const legacyRaw=localStorage.getItem('ld_'+k);
+    if(!legacyRaw)return;
+    let legacyVal;
+    try{legacyVal=JSON.parse(legacyRaw);}catch{return;}
+    if(!Array.isArray(legacyVal)||legacyVal.length===0)return;
+    const current=DB.g(k)||[];
+    if(current.length>0)return; // never clobber real existing data here
+    DB.s(k,legacyVal);
+    recovered.push(k);
+  });
+  // Only recover plain profile fields (name/role/lab/pi/email/inst) — never
+  // touch the newer Dropbox/team-specific cfg fields that don't exist in
+  // the old site's cfg shape at all.
+  const legacyCfgRaw=localStorage.getItem('ld_cfg');
+  if(legacyCfgRaw){
+    try{
+      const legacyCfg=JSON.parse(legacyCfgRaw);
+      const rawCurrent=DB.g('cfg')||{}; // raw stored value — cfg() fills in
+      // placeholder defaults (e.g. name:'Researcher') that would otherwise
+      // look "already set" and block the real legacy values from copying in.
+      const merged={...cfg(),...rawCurrent};
+      let changed=false;
+      ['name','role','lab','pi','email','inst'].forEach(f=>{
+        if(legacyCfg[f]&&!rawCurrent[f]){merged[f]=legacyCfg[f];changed=true;}
+      });
+      if(changed){DB.s('cfg',merged);recovered.push('profile');}
+    }catch{}
+  }
+  return recovered;
+}
+
+function recoverLegacyData(){
+  if(!confirm("This copies any records from the original lab-daily site into your Dropbox account here. It will NOT modify or delete anything on the original lab-daily site. Continue?"))return;
+  const recovered=recoverFromLegacyLocalData();
+  if(recovered.length){
+    toast('Recovered: '+recovered.join(', ')+' — syncing to Dropbox…','t-ok');
+    location.reload();
+  }else{
+    toast('No recoverable data found here (or this account already has data).','err');
   }
 }
 
