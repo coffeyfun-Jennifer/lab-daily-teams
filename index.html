@@ -1383,6 +1383,16 @@ function renderTeamCard(){
   // managing it just by picking "Member" as their own role, and anyone who
   // *joins* as "PI" would wrongly get edit controls that write to their own
   // disconnected copy instead of the real shared one.
+  // One-time migration: teams created before this owner/role split never
+  // got teamIsOwner stamped at all (the field didn't exist yet), so infer
+  // it for the original creator by matching team.createdBy — which
+  // createTeam() has always set — against this account's own email/name.
+  // Only fires when the flag is genuinely undefined, so it can't override
+  // an explicit false from someone who joined post-fix.
+  if(c.teamIsOwner===undefined&&team.createdBy&&(team.createdBy===c.email||team.createdBy===c.name)){
+    c.teamIsOwner=true;
+    DB.s('cfg',c);
+  }
   const isOwner=!!c.teamIsOwner;
   return `<div class="card mb4">
     <div class="flex ic jb mb3">
