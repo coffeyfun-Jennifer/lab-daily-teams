@@ -1722,7 +1722,14 @@ async function forceResyncAll(){
 // the original lab-daily site is completely unaffected.
 function recoverFromLegacyLocalData(){
   const recovered=[];
-  ['records','projects','atts','files','cmts'].forEach(k=>{
+  const failed=[];
+  // Smallest/most-critical keys first — localStorage has a small per-origin
+  // quota (typically 5-10MB), and keeping the legacy copy untouched means
+  // this recovery temporarily needs room for BOTH copies of each key. If
+  // large attachment/file blobs blow the quota, this order ensures records
+  // and projects are already saved before that happens, instead of a single
+  // failure on one big key aborting recovery of everything else.
+  ['records','projects','cmts','atts','files'].forEach(k=>{
     const legacyRaw=localStorage.getItem('ld_'+k);
     if(!legacyRaw)return;
     let legacyVal;
@@ -1730,8 +1737,12 @@ function recoverFromLegacyLocalData(){
     if(!Array.isArray(legacyVal)||legacyVal.length===0)return;
     const current=DB.g(k)||[];
     if(current.length>0)return; // never clobber real existing data here
-    DB.s(k,legacyVal);
-    recovered.push(k);
+    try{
+      DB.s(k,legacyVal);
+      recovered.push(k);
+    }catch(e){
+      failed.push(k); // e.g. QuotaExceededError on large attachment/file blobs
+    }
   });
   // Only recover plain profile fields (name/role/lab/pi/email/inst) — never
   // touch the newer Dropbox/team-specific cfg fields that don't exist in
@@ -1748,18 +1759,26 @@ function recoverFromLegacyLocalData(){
       ['name','role','lab','pi','email','inst'].forEach(f=>{
         if(legacyCfg[f]&&!rawCurrent[f]){merged[f]=legacyCfg[f];changed=true;}
       });
-      if(changed){DB.s('cfg',merged);recovered.push('profile');}
+      if(changed){
+        try{DB.s('cfg',merged);recovered.push('profile');}
+        catch(e){failed.push('profile');}
+      }
     }catch{}
   }
-  return recovered;
+  return {recovered,failed};
 }
 
 function recoverLegacyData(){
   if(!confirm("This copies any records from the original lab-daily site into your Dropbox account here. It will NOT modify or delete anything on the original lab-daily site. Continue?"))return;
-  const recovered=recoverFromLegacyLocalData();
+  const {recovered,failed}=recoverFromLegacyLocalData();
   if(recovered.length){
-    toast('Recovered: '+recovered.join(', ')+' — syncing to Dropbox…','t-ok');
+    let msg='Recovered: '+recovered.join(', ');
+    if(failed.length)msg+=' — could not recover '+failed.join(', ')+' (browser storage full)';
+    msg+=' — syncing to Dropbox…';
+    toast(msg,'t-ok');
     location.reload();
+  }else if(failed.length){
+    toast('Could not recover '+failed.join(', ')+' — your browser storage is full. Try freeing space (e.g. clearing old exports) and try again.','err');
   }else{
     toast('No recoverable data found here (or this account already has data).','err');
   }
