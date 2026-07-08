@@ -1335,7 +1335,8 @@ function saveProfile(){
     ghToken:(document.getElementById('s-gh-token')||{}).value||prev.ghToken||'',
     gistId:prev.gistId||'',
     teamRole:prev.teamRole||'',
-    teamLink:prev.teamLink||''
+    teamLink:prev.teamLink||'',
+    teamIsOwner:prev.teamIsOwner||false
   };
   DB.s('cfg',c);
   document.getElementById('uname').textContent=c.name||'Researcher';
@@ -1375,19 +1376,26 @@ function renderTeamCard(){
       </div>
     </div>`;
   }
-  const isPI=c.teamRole==='pi';
+  // Admin capability (Add Member / manage the Team Link) is tied to owning
+  // the canonical team.json — i.e. whoever's Dropbox account the shared link
+  // actually points at — NOT to the PI/Member role label. Otherwise the
+  // person who set up the team could accidentally lock themselves out of
+  // managing it just by picking "Member" as their own role, and anyone who
+  // *joins* as "PI" would wrongly get edit controls that write to their own
+  // disconnected copy instead of the real shared one.
+  const isOwner=!!c.teamIsOwner;
   return `<div class="card mb4">
     <div class="flex ic jb mb3">
       <div class="card-title" style="margin:0">🧑‍🔬 ${esc(team.name)}</div>
-      ${!isPI?`<button class="btn btn-secondary btn-sm" onclick="refreshTeam()">↻ Refresh</button>`:''}
+      ${!isOwner?`<button class="btn btn-secondary btn-sm" onclick="refreshTeam()">↻ Refresh</button>`:''}
     </div>
     <div class="mb3">
-      ${(team.members||[]).map(m=>`<div class="flex ic jb" style="padding:6px 0;border-bottom:1px solid var(--border)">
+      ${(team.members||[]).map((m,i)=>`<div class="flex ic jb" style="padding:6px 0;border-bottom:1px solid var(--border)">
         <div><span class="semi">${esc(m.name||m.email||'Unnamed')}</span> <span class="xs muted">${esc(m.email||'')}</span></div>
-        <span class="badge ${m.role==='pi'?'b-blue':'b-gray'}">${m.role==='pi'?'PI':'Member'}</span>
+        <span class="badge ${m.role==='pi'?'b-blue':'b-gray'}" ${isOwner?`style="cursor:pointer" onclick="toggleMemberRole(${i})" title="Click to toggle PI/Member"`:''}>${m.role==='pi'?'PI':'Member'}</span>
       </div>`).join('')||'<p class="sm muted">No members yet.</p>'}
     </div>
-    ${isPI?`
+    ${isOwner?`
       <div class="fg"><label class="fl">Add Member <span class="xs muted">(Name &lt;email&gt;)</span></label>
         <div class="flex g2u"><input class="fi" id="team-new-member" placeholder="Jane Doe <jane@lab.edu>">
         <button class="btn btn-secondary" onclick="addTeamMember()">+ Add</button></div>
@@ -1428,10 +1436,28 @@ async function createTeam(){
   try{
     await LDDropbox.pushNow('team');
     const link=await LDDropbox.getShareLinkFor('team');
-    DB.s('cfg',{...cfg(),teamRole:myRole,teamLink:link});
+    DB.s('cfg',{...cfg(),teamRole:myRole,teamLink:link,teamIsOwner:true});
     toast('Team created!','t-ok');
   }catch(e){
     toast('Could not generate share link: '+e.message,'err');
+  }
+  renderSettings();
+}
+
+// Only the owner's own entry in the roster edits should carry admin
+// weight, so keep it simple: clicking a role badge just toggles that
+// member's pi/member label (cosmetic — doesn't affect who can manage
+// the team, that's tied to teamIsOwner instead).
+async function toggleMemberRole(idx){
+  const team=DB.g('team');
+  if(!team||!team.members||!team.members[idx])return;
+  team.members[idx].role=team.members[idx].role==='pi'?'member':'pi';
+  team.updatedAt=Date.now();
+  DB.s('team',team);
+  try{
+    await LDDropbox.pushNow('team');
+  }catch(e){
+    toast('Saved locally, but sync failed: '+e.message,'err');
   }
   renderSettings();
 }
@@ -1461,7 +1487,12 @@ async function joinTeam(){
   try{
     const team=await LDDropbox.fetchPublicJson(link);
     DB.s('team',team);
-    DB.s('cfg',{...cfg(),teamRole:'member',teamLink:link});
+    const c=cfg();
+    // Reflect whatever role the roster actually lists for me (matched by
+    // email), rather than assuming "member" — the owner may have marked
+    // me as PI in the roster.
+    const mine=(team.members||[]).find(m=>m.email&&c.email&&m.email.toLowerCase()===c.email.toLowerCase());
+    DB.s('cfg',{...c,teamRole:mine?mine.role:'member',teamLink:link,teamIsOwner:false});
     toast('Joined '+(team.name||'team')+'!','t-ok');
   }catch(e){
     toast('Could not load that link: '+e.message,'err');
@@ -1485,7 +1516,7 @@ async function refreshTeam(){
 function leaveTeam(){
   if(!confirm('Leave this team? You can rejoin later with the team link.'))return;
   DB.s('team',null);
-  DB.s('cfg',{...cfg(),teamRole:'',teamLink:''});
+  DB.s('cfg',{...cfg(),teamRole:'',teamLink:'',teamIsOwner:false});
   toast('Left team');
   renderSettings();
 }
