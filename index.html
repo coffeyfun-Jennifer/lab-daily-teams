@@ -698,7 +698,10 @@ function renderRecords(){
           ${r.summary?`<div style="font-size:13px;color:var(--text2);white-space:pre-wrap;line-height:1.7">${esc(r.summary)}</div>`:`<p class="sm muted">No summary — <a href="#" onclick="event.preventDefault();openRecModal('${r.date}')" style="color:var(--primary)">Add one</a></p>`}
         </div>
         <div style="width:220px;flex-shrink:0;border-left:1px solid var(--border);padding-left:14px">
-          <div class="xs mb1" style="font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#16a34a">💬 PI Comment</div>
+          <div class="flex ic jb mb1">
+            <div class="xs" style="font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#16a34a">💬 PI Comment</div>
+            <button class="icon-btn" title="${piC?'Edit comment':'Add comment'}" onclick="openCmtModal('${r.id}','${piC?piC.id:''}','pi')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          </div>
           ${piC?`<div style="font-size:13px;color:var(--text2);white-space:pre-wrap;line-height:1.6">${esc(piC.text)}</div>`:`<p class="sm muted" style="font-style:italic">No comment yet</p>`}
         </div>
       </div>
@@ -2136,21 +2139,27 @@ function doUpload(){
 }
 
 // Comment modal
-function openCmtModal(recId){
+function openCmtModal(recId,cmtId,defaultRole){
+  const existing=cmtId?DB.find('cmts',cmtId):null;
+  const role=existing?existing.role:(defaultRole||'researcher');
   modal(`
-    <div class="mh"><h2>Add Comment</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mh"><h2>${cmtId?'Edit':'Add'} Comment</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
     <div class="mb">
       <input type="hidden" id="cm-rid" value="${recId}">
-      <div class="fg"><label class="fl">Role</label><select class="fs" id="cm-role"><option value="researcher">Researcher</option><option value="pi">PI / Supervisor</option></select></div>
-      <div class="fg"><label class="fl">Comment *</label><textarea class="ft" id="cm-text" style="min-height:120px" placeholder="Write your comment..."></textarea></div>
+      <input type="hidden" id="cm-id" value="${cmtId||''}">
+      <div class="fg"><label class="fl">Role</label><select class="fs" id="cm-role"><option value="researcher" ${role==='researcher'?'selected':''}>Researcher</option><option value="pi" ${role==='pi'?'selected':''}>PI / Supervisor</option></select></div>
+      <div class="fg"><label class="fl">Comment *</label><textarea class="ft" id="cm-text" style="min-height:120px" placeholder="Write your comment...">${esc(existing?existing.text:'')}</textarea></div>
     </div>
-    <div class="mf"><button class="btn btn-secondary" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="saveCmt()">Post</button></div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="saveCmt()">${cmtId?'Save':'Post'}</button></div>
   `);
 }
 function saveCmt(){
   const text=document.getElementById('cm-text').value.trim();if(!text){alert('Write a comment.');return}
-  DB.push('cmts',{id:uid(),recId:document.getElementById('cm-rid').value,role:document.getElementById('cm-role').value,text,at:Date.now()});
-  toast('Posted!','ok');closeM();
+  const cmtId=document.getElementById('cm-id').value;
+  const role=document.getElementById('cm-role').value;
+  if(cmtId)DB.upd('cmts',cmtId,{text,role,at:Date.now()});
+  else DB.push('cmts',{id:uid(),recId:document.getElementById('cm-rid').value,role,text,at:Date.now()});
+  toast(cmtId?'Comment updated!':'Posted!','ok');closeM();
 }
 
 // ══════════════════════════════
