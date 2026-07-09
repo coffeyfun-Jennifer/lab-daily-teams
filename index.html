@@ -1479,12 +1479,13 @@ function renderSettings(){
         <div class="fg"><label class="fl">Your Data Folder Link</label>
           <input class="fi" id="s-data-folder-link" value="${esc(c.dataFolderLink||'')}" placeholder="Click Generate below">
         </div>
-        <div class="flex g2u">
+        <div class="flex g2u" style="flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" id="data-folder-link-gen-btn" onclick="generateDataFolderLink()">🔗 Generate Link</button>
           <button class="btn btn-secondary btn-sm" onclick="saveProfile()">Save</button>
           ${c.dataFolderLink?`<button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('s-data-folder-link').value).then(()=>toast('Copied!','ok'))">Copy Link</button>`:''}
+          <a class="btn btn-secondary btn-sm" href="https://www.dropbox.com/home/LabDaily" target="_blank" rel="noopener">🔍 View in Dropbox (web)</a>
         </div>
-        <p class="xs muted mt2">💡 Prefer Generate over manually finding and sharing the folder in Dropbox's own UI — sharing the wrong folder by mistake is easy to do and looks like "no data" to your PI with no error anywhere.</p>
+        <p class="xs muted mt2">💡 Prefer Generate over manually finding and sharing the folder in Dropbox's own UI — sharing the wrong folder by mistake is easy to do and looks like "no data" to your PI with no error anywhere. "View in Dropbox" opens the real folder at dropbox.com so you can see exactly what's in it — a browser page can't reveal a local Finder/Explorer location the way a desktop app could, only Dropbox's own desktop client (if you have it installed) knows where this is synced on your disk.</p>
       </div>
       <div class="card mb4">
         <div class="card-title mb3">💬 PI Comments (from shared link)</div>
