@@ -1485,6 +1485,17 @@ function renderSettings(){
         </div>
       </div>
       <div class="card mb4">
+        <div class="card-title mb3">💬 PI Comments (from shared link)</div>
+        <p class="sm muted mb3">If your PI connected their own Dropbox while commenting on a "Share with PI" link, paste the link they sent you below, once. Pulling merges their comments straight into your own records here — nothing is overwritten, only new comments are added.</p>
+        <div class="fg"><label class="fl">PI's Comments Link</label>
+          <input class="fi" id="s-pi-comments-link" value="${esc(c.piCommentsLink||'')}" placeholder="https://www.dropbox.com/scl/fi/...">
+        </div>
+        <div class="flex g2u">
+          <button class="btn btn-primary btn-sm" onclick="saveProfile()">Save</button>
+          <button class="btn btn-secondary btn-sm" ${!c.piCommentsLink?'disabled':''} onclick="pullPiComments()">🔄 Pull PI Comments</button>
+        </div>
+      </div>
+      <div class="card mb4">
         <div class="card-title mb3">💾 Backup & Export</div>
         <p class="sm muted mb3">All data is stored in your browser localStorage. Export regularly.</p>
         <div class="flex col g2u">
@@ -1519,6 +1530,7 @@ function saveProfile(){
     teamLink:prev.teamLink||'',
     teamIsOwner:prev.teamIsOwner||false,
     dataFolderLink:(document.getElementById('s-data-folder-link')||{}).value||prev.dataFolderLink||'',
+    piCommentsLink:(document.getElementById('s-pi-comments-link')||{}).value||prev.piCommentsLink||'',
     memberFolderLinks:prev.memberFolderLinks||{}
   };
   DB.s('cfg',c);
@@ -1527,6 +1539,27 @@ function saveProfile(){
   document.getElementById('urole').textContent=c.role||'Lab Member';
   toast('Settings saved!','t-ok');
   renderSettings();
+}
+
+// ── Pull comments a PI saved to their own Dropbox (see connectPiDropbox /
+//    saveCmt's anonymous+logged-in branch) and merge them additively into
+//    this account's own real 'cmts' — purely additive by id, same pattern
+//    as recoverFromLegacyLocalData, so re-pulling is always safe. ──
+async function pullPiComments(){
+  const link=(cfg().piCommentsLink||'').trim();
+  if(!link){toast('Paste your PI\'s comments link first','err');return;}
+  toast('Pulling PI comments…');
+  try{
+    const remote=await LDDropbox.readMemberDataFromLink(link,'pi_comments');
+    if(!Array.isArray(remote)||!remote.length){toast('No comments found at that link yet','err');return;}
+    const existingIds=new Set(DB.list('cmts').map(c=>c.id));
+    const toAdd=remote.filter(c=>c&&c.id&&!existingIds.has(c.id));
+    toAdd.forEach(c=>DB.push('cmts',c));
+    toast(toAdd.length?`Pulled ${toAdd.length} new comment${toAdd.length!==1?'s':''}!`:'Already up to date — no new comments.','ok');
+    go(CUR,CUR_SUB);
+  }catch(e){
+    toast('Could not pull PI comments: '+e.message,'err');
+  }
 }
 
 // ══════════════════════════════
@@ -2151,9 +2184,18 @@ function saveLocalCmt(gistId,cmt){
   localStorage.setItem(localCmtKey(gistId),JSON.stringify(all));
 }
 
+// ── PI connects their own Dropbox, from an anonymous "Share with PI" link,
+//    purely to have comments save directly instead of staying local+email.
+//    See boot()'s cameFromOAuth handling for the other half of this. ──
+function connectPiDropbox(){
+  if(!MIRROR||!MIRROR.gistId)return;
+  LDDropbox.login(MIRROR.gistId);
+}
+
 function openCmtModal(recId,cmtId,defaultRole){
   const existing=cmtId?DB.find('cmts',cmtId):null;
   const role=existing?existing.role:(defaultRole||'researcher');
+  const showConnectHint=MIRROR&&MIRROR.anonymous&&!LDDropbox.isLoggedIn();
   modal(`
     <div class="mh"><h2>${cmtId?'Edit':'Add'} Comment</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
     <div class="mb">
@@ -2161,11 +2203,31 @@ function openCmtModal(recId,cmtId,defaultRole){
       <input type="hidden" id="cm-id" value="${cmtId||''}">
       <div class="fg"><label class="fl">Role</label><select class="fs" id="cm-role"><option value="researcher" ${role==='researcher'?'selected':''}>Researcher</option><option value="pi" ${role==='pi'?'selected':''}>PI / Supervisor</option></select></div>
       <div class="fg"><label class="fl">Comment *</label><textarea class="ft" id="cm-text" style="min-height:120px" placeholder="Write your comment...">${esc(existing?existing.text:'')}</textarea></div>
+      ${showConnectHint?`<div class="xs muted" style="background:var(--surface2);padding:8px 10px;border-radius:6px">💡 This will only be saved in this browser unless you <a href="#" onclick="event.preventDefault();connectPiDropbox()" style="color:var(--primary);font-weight:600">connect your Dropbox</a> — then it saves directly for ${esc((MIRROR.cfg&&MIRROR.cfg.name)||'the researcher')} to see.</div>`:''}
     </div>
     <div class="mf"><button class="btn btn-secondary" onclick="closeM()">Cancel</button><button class="btn btn-primary" onclick="saveCmt()">${cmtId?'Save':'Post'}</button></div>
   `);
 }
-function saveCmt(){
+
+// After the PI's first comment lands in their own Dropbox, show them the
+// share link once so they can send it to the researcher — that one-time
+// paste (into the researcher's Settings) is what lets future comments show
+// up automatically. Re-shown link is idempotent (same URL every time).
+function showPiShareLinkModal(link,researcherName){
+  modal(`
+    <div class="mh"><h2>✅ Saved to your Dropbox</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <p class="sm mb3">Send this link to ${esc(researcherName)} once — after they paste it into their Settings, this and every future comment you leave here will show up in their LabDaily automatically.</p>
+      <div class="flex g2u" style="align-items:center">
+        <input class="fi" id="pi-share-link" value="${esc(link)}" readonly style="font-size:11px;flex:1">
+        <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText('${link}').then(()=>toast('Copied!'))">Copy</button>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-primary" onclick="closeM()">Done</button></div>
+  `);
+}
+
+async function saveCmt(){
   const text=document.getElementById('cm-text').value.trim();if(!text){alert('Write a comment.');return}
   const cmtId=document.getElementById('cm-id').value;
   const role=document.getElementById('cm-role').value;
@@ -2175,9 +2237,28 @@ function saveCmt(){
     const cmt={id:cmtId||uid(),recId,role,text,at:Date.now()};
     MIRROR.cmts=(MIRROR.cmts||[]).filter(c=>c.id!==cmt.id).concat(cmt);
     saveLocalCmt(MIRROR.gistId,cmt);
+    const researcherName=(MIRROR.cfg&&MIRROR.cfg.name)||'the researcher';
+
+    if(LDDropbox.isLoggedIn()){
+      closeM();
+      try{
+        const mine=loadLocalCmts(MIRROR.gistId);
+        await LDDropbox.pushRaw('pi_comments',mine);
+        if(!MIRROR.piShareLinkShown){
+          const link=await LDDropbox.getShareLinkFor('pi_comments');
+          MIRROR.piShareLinkShown=true;
+          showPiShareLinkModal(link,researcherName);
+        }else{
+          toast('Saved to your Dropbox ✓');
+        }
+      }catch(e){
+        toast('Comment saved locally, but could not sync to Dropbox: '+e.message,'err');
+      }
+      return;
+    }
+
     closeM();
     const email=MIRROR.cfg&&MIRROR.cfg.email;
-    const researcherName=MIRROR.cfg&&MIRROR.cfg.name||'the researcher';
     if(email&&confirm('Comment saved in this browser. It won\'t reach '+researcherName+' unless you email it — open an email now?')){
       const subject=encodeURIComponent('LabDaily comment from '+researcherName+"'s shared link");
       window.open('mailto:'+email+'?subject='+subject+'&body='+encodeURIComponent(text));
@@ -3738,17 +3819,27 @@ async function bootFromGist(gistId){
       cfg:{name:payload.researcher||'',role:payload.role||'',lab:payload.lab||'',pi:payload.pi||'',email:payload.email||'',inst:payload.inst||''},
       records:payload.records,projects:payload.projects,atts:payload.atts,files:payload.files,cmts:payload.cmts
     });
-    // No account behind this link to save comments to — mark it so saveCmt()
-    // keeps them in this browser (tied to this gist) instead, and merge in
-    // anything already saved here on an earlier visit.
+    // No account behind this link to save comments to by default — mark it
+    // so saveCmt() keeps them in this browser (tied to this gist) instead,
+    // and merge in anything already saved here on an earlier visit. If the
+    // PI has connected their own Dropbox (see connectPiDropbox), also pull
+    // back whatever they'd already saved there under their own account.
     MIRROR.anonymous=true;
     MIRROR.gistId=gistId;
     MIRROR.cmts=(MIRROR.cmts||[]).concat(loadLocalCmts(gistId));
+    let bannerText='🔒 Shared by '+(payload.researcher||'a researcher')+' — read-only view. Comments you add are saved in this browser only — email them, or connect your own Dropbox to save them directly for '+(payload.researcher||'the researcher')+'.';
+    if(LDDropbox.isLoggedIn()){
+      try{
+        const remote=await LDDropbox.pullRaw('pi_comments');
+        if(Array.isArray(remote)){
+          const ids=new Set(MIRROR.cmts.map(c=>c.id));
+          remote.forEach(c=>{if(!ids.has(c.id)){MIRROR.cmts.push(c);ids.add(c.id)}});
+        }
+      }catch(e){console.error('Could not pull previously-saved PI comments from Dropbox',e);}
+      bannerText='🔒 Shared by '+(payload.researcher||'a researcher')+' — read-only view. Your Dropbox is connected, so comments you add are saved directly for '+(payload.researcher||'the researcher')+' to see.';
+    }
     dbxGate(null);
-    showMirrorBanner(
-      '🔒 Shared by '+(payload.researcher||'a researcher')+' — read-only view. Comments you add are saved in this browser only — email them to reach '+(payload.researcher||'the researcher')+'.',
-      '',null
-    );
+    showMirrorBanner(bannerText,'',null);
     bootApp();
   }catch(e){
     dbxGate(`
@@ -3761,9 +3852,18 @@ async function bootFromGist(gistId){
 }
 
 (async function boot(){
-  const gistId=new URLSearchParams(location.search).get('gist');
+  // handleCallbackIfPresent() must run before we branch on ?gist= — Dropbox's
+  // OAuth redirect lands back on the bare page URL with no query string of
+  // ours preserved, so a PI who clicked "Connect Dropbox" while viewing a
+  // shared link has to have that gist id recovered from consumeReturnState()
+  // (stashed by connectPiDropbox() before redirecting) instead of the URL.
+  const cameFromOAuth=await LDDropbox.handleCallbackIfPresent();
+  let gistId=new URLSearchParams(location.search).get('gist');
+  if(cameFromOAuth){
+    const pending=LDDropbox.consumeReturnState();
+    if(pending)gistId=pending;
+  }
   if(gistId){await bootFromGist(gistId);return;}
-  await LDDropbox.handleCallbackIfPresent();
   if(!LDDropbox.isLoggedIn()){
     showLoginScreen();
     return;

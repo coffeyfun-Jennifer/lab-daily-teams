@@ -70,11 +70,19 @@
     return uid ? `ld_${uid}_${k}` : `ld_${k}`;
   }
 
-  // ── Start login: redirect to Dropbox ──
-  async function login() {
+  const RETURN_STATE_KEY = 'dbx_return_state';
+
+  // ── Start login: redirect to Dropbox. `returnState`, if given, is stashed
+  //    across the redirect (Dropbox's callback lands back on the bare page
+  //    URL with no query string of ours preserved) so the caller can restore
+  //    context afterward — e.g. which shared "?gist=" link a PI was viewing
+  //    when they chose to connect their own Dropbox to save a comment ──
+  async function login(returnState) {
     const verifier = randomString(64);
     const state = randomString(24);
     sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier, state }));
+    if (returnState) sessionStorage.setItem(RETURN_STATE_KEY, returnState);
+    else sessionStorage.removeItem(RETURN_STATE_KEY);
     const challenge = b64url(await sha256(verifier));
     const url = new URL('https://www.dropbox.com/oauth2/authorize');
     url.searchParams.set('client_id', DBX_APP_KEY);
@@ -85,6 +93,14 @@
     url.searchParams.set('token_access_type', 'offline');
     url.searchParams.set('state', state);
     location.href = url.toString();
+  }
+
+  // ── Read back (and clear) whatever context login() stashed, once the
+  //    OAuth round-trip is done. Safe to call even if nothing was stashed. ──
+  function consumeReturnState() {
+    const v = sessionStorage.getItem(RETURN_STATE_KEY);
+    sessionStorage.removeItem(RETURN_STATE_KEY);
+    return v;
   }
 
   function logout() {
@@ -394,10 +410,18 @@
     await dbxUploadJson(`${DBX_ROOT}/data/${key}.json`, value);
   }
 
+  // ── Read one of this (now-logged-in) account's own raw keys straight
+  //    back, bypassing the namespaced-localStorage copy — the read-side
+  //    counterpart of pushRaw, e.g. so a PI who connected Dropbox just to
+  //    save comments can see their own previously-saved ones again ──
+  async function pullRaw(key) {
+    return dbxDownloadJson(`${DBX_ROOT}/data/${key}.json`);
+  }
+
   window.LDDropbox = {
     isLoggedIn, login, logout, currentUid,
-    getAuth, pullAll, wrapDB, handleCallbackIfPresent,
+    getAuth, pullAll, wrapDB, handleCallbackIfPresent, consumeReturnState,
     pushNow, forceResyncAll, getShareLinkFor, fetchPublicJson,
-    readMemberDataFromLink, pushRaw, uploadAttachment
+    readMemberDataFromLink, pushRaw, pullRaw, uploadAttachment
   };
 })();
