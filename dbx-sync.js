@@ -343,10 +343,9 @@
   }
 
 
-  // ── Get (or create) a shareable link to one of this account's own
-  //    synced data files — used to distribute the team roster ──
-  async function getShareLinkFor(key) {
-    const path = `${DBX_ROOT}/data/${key}.json`;
+  // ── Get (or create) a shareable link to any path in this account's own
+  //    Dropbox ──
+  async function getShareLinkForPath(path) {
     try {
       const res = await dbxApi('sharing/create_shared_link_with_settings', { path });
       return res.url;
@@ -358,6 +357,24 @@
       }
       throw e;
     }
+  }
+
+  // ── Get (or create) a shareable link to one of this account's own
+  //    synced data files — used to distribute the team roster ──
+  async function getShareLinkFor(key) {
+    return getShareLinkForPath(`${DBX_ROOT}/data/${key}.json`);
+  }
+
+  // ── Get (or create) a shareable link to this account's whole LabDaily
+  //    app folder — used for "Share Data Folder with PI". Generating it
+  //    via the API instead of asking the member to find and share the
+  //    right folder by hand in Dropbox's own UI removes the single most
+  //    common failure mode: sharing some other, unrelated folder by
+  //    mistake (their real records then look "empty" to the PI, with no
+  //    error anywhere — Dropbox happily returns 404s for paths that don't
+  //    exist under whatever they actually shared). ──
+  async function getShareLinkForRootFolder() {
+    return getShareLinkForPath(DBX_ROOT);
   }
 
   // ── PI side: read one synced data file out of a team member's LabDaily
@@ -427,7 +444,7 @@
   window.LDDropbox = {
     isLoggedIn, login, logout, currentUid,
     getAuth, pullAll, wrapDB, handleCallbackIfPresent, consumeReturnState,
-    pushNow, forceResyncAll, getShareLinkFor, readSharedFileJson,
+    pushNow, forceResyncAll, getShareLinkFor, getShareLinkForRootFolder, readSharedFileJson,
     readMemberDataFromLink, pushRaw, pullRaw, uploadAttachment
   };
 })();

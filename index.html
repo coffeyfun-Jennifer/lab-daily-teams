@@ -1475,14 +1475,16 @@ function renderSettings(){
       </div>
       <div class="card mb4">
         <div class="card-title mb3">📁 Share Data Folder with PI (Dropbox)</div>
-        <p class="sm muted mb3">In the Dropbox app or website, share your <code>LabDaily</code> folder (view-only) and paste the link below. Copy it and send it to ${esc(c.pi||'your PI')} — they'll paste it into their PI Dashboard to view your records. Each team member does this with their own Dropbox link.</p>
+        <p class="sm muted mb3">Click Generate to create a view-only link to your own LabDaily data folder, then copy and send it to ${esc(c.pi||'your PI')} — they'll paste it into their PI Dashboard to view your records. Each team member does this once with their own link.</p>
         <div class="fg"><label class="fl">Your Data Folder Link</label>
-          <input class="fi" id="s-data-folder-link" value="${esc(c.dataFolderLink||'')}" placeholder="https://www.dropbox.com/scl/fo/...">
+          <input class="fi" id="s-data-folder-link" value="${esc(c.dataFolderLink||'')}" placeholder="Click Generate below">
         </div>
         <div class="flex g2u">
-          <button class="btn btn-primary btn-sm" onclick="saveProfile()">Save</button>
-          ${c.dataFolderLink?`<button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('s-data-folder-link').value).then(()=>toast('Copied!','t-ok'))">Copy Link</button>`:''}
+          <button class="btn btn-primary btn-sm" id="data-folder-link-gen-btn" onclick="generateDataFolderLink()">🔗 Generate Link</button>
+          <button class="btn btn-secondary btn-sm" onclick="saveProfile()">Save</button>
+          ${c.dataFolderLink?`<button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('s-data-folder-link').value).then(()=>toast('Copied!','ok'))">Copy Link</button>`:''}
         </div>
+        <p class="xs muted mt2">💡 Prefer Generate over manually finding and sharing the folder in Dropbox's own UI — sharing the wrong folder by mistake is easy to do and looks like "no data" to your PI with no error anywhere.</p>
       </div>
       <div class="card mb4">
         <div class="card-title mb3">💬 PI Comments (from shared link)</div>
@@ -1680,6 +1682,19 @@ async function createTeam(){
 // Retries the same share-link step createTeam() does, for teams whose
 // link never got saved the first time (e.g. a Dropbox API error at
 // creation time) — owner-only, called from the "Generate Link" button.
+async function generateDataFolderLink(){
+  const btn=document.getElementById('data-folder-link-gen-btn');
+  if(btn){btn.disabled=true;btn.textContent='Generating…';}
+  try{
+    const link=await LDDropbox.getShareLinkForRootFolder();
+    DB.s('cfg',{...cfg(),dataFolderLink:link});
+    toast('Link generated!','ok');
+  }catch(e){
+    toast('Could not generate link: '+e.message,'err');
+  }
+  renderSettings();
+}
+
 async function generateTeamLink(){
   const btn=document.getElementById('team-link-gen-btn');
   if(btn){btn.disabled=true;btn.textContent='Generating…';}
