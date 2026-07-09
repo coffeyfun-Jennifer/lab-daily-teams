@@ -1233,6 +1233,22 @@ function cancelEditTeamPost(){
   TB_EDITING_ID=null;
   go('teamboard');
 }
+function deleteTeamPost(id){
+  if(!DB.find('team_posts',id)){toast('You can only delete your own posts','err');return;}
+  if(!confirm('Delete this post? This can\'t be undone.'))return;
+  DB.del('team_posts',id);
+  TB_EDITING_ID=null;
+  toast('Post deleted','ok');
+  go('teamboard');
+}
+// Pinning is limited to your own posts, same as edit/delete — there's no
+// write access to anyone else's outbox to pin theirs instead.
+function togglePinTeamPost(id){
+  const post=DB.find('team_posts',id);
+  if(!post){toast('You can only pin your own posts','err');return;}
+  DB.upd('team_posts',id,{pinned:!post.pinned});
+  go('teamboard');
+}
 
 async function postToTeamBoard(){
   const textEl=document.getElementById('tb-text');
@@ -1333,17 +1349,22 @@ async function syncTeamBoard(){
 function renderTeamBoardFeed(posts){
   if(!posts.length)return`<div class="card" style="text-align:center;padding:40px"><p class="muted">No posts yet — be the first to share something.</p></div>`;
   const myIds=new Set(DB.list('team_posts').map(p=>p.id));
-  return posts.slice().sort((a,b)=>b.at-a.at).map(p=>`
-    <div class="card mb3">
+  // Pinned posts first (newest-pinned first), then everything else by time.
+  const sorted=posts.slice().sort((a,b)=>(!!b.pinned-!!a.pinned)||(b.at-a.at));
+  return sorted.map(p=>`
+    <div class="card mb3" ${p.pinned?'style="border-color:#f59e0b"':''}>
       <div class="flex ic jb mb2">
         <div class="flex ic g2u">
           <div class="avatar" style="width:28px;height:28px;font-size:11px;background:${p.role==='pi'?'#7c3aed':'var(--primary)'}">${esc((p.authorName||'?')[0].toUpperCase())}</div>
           <div>
-            <div style="font-weight:700;font-size:13px">${esc(p.authorName||'Someone')}${p.role==='pi'?' <span class="badge b-blue">PI</span>':''}</div>
+            <div style="font-weight:700;font-size:13px">${esc(p.authorName||'Someone')}${p.role==='pi'?' <span class="badge b-blue">PI</span>':''}${p.pinned?' <span class="badge" style="background:#fef3c7;color:#92400e">📌 Pinned</span>':''}</div>
             <div class="xs muted">${ft(p.at)}${p.editedAt?' · edited':''}</div>
           </div>
         </div>
-        ${myIds.has(p.id)?`<button class="icon-btn" title="Edit" onclick="editTeamPost('${p.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}
+        <div class="flex g2u">
+          ${myIds.has(p.id)?`<button class="icon-btn" title="${p.pinned?'Unpin':'Pin to top'}" onclick="togglePinTeamPost('${p.id}')"><svg viewBox="0 0 24 24" fill="${p.pinned?'currentColor':'none'}" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;color:${p.pinned?'#f59e0b':'inherit'}"><path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6z"/></svg></button>`:''}
+          ${myIds.has(p.id)?`<button class="icon-btn" title="Edit" onclick="editTeamPost('${p.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`:''}
+        </div>
       </div>
       ${p.text?`<p class="sm" style="white-space:pre-wrap;color:var(--text2);margin-bottom:${(p.files||[]).length?'10px':'0'}">${esc(p.text)}</p>`:''}
       ${(p.files||[]).map(f=>`
@@ -1380,7 +1401,10 @@ function renderTeamBoard(){
       ${editingPost?'':'<div class="mt2" id="tb-file-prev"></div>'}
       <div class="flex ic jb mt2">
         ${editingPost?`<button class="btn btn-secondary btn-sm" onclick="cancelEditTeamPost()">Cancel</button>`:`<label class="btn btn-secondary btn-sm" style="cursor:pointer">📎 Attach Files<input type="file" multiple style="display:none" onchange="handleTeamBoardFiles(this.files)"></label>`}
-        <button class="btn btn-primary btn-sm" id="tb-post-btn" onclick="postToTeamBoard()">${editingPost?'Save':'Post'}</button>
+        <div class="flex g2u">
+          ${editingPost?`<button class="btn btn-danger btn-sm" onclick="deleteTeamPost('${editingPost.id}')">🗑 Delete</button>`:''}
+          <button class="btn btn-primary btn-sm" id="tb-post-btn" onclick="postToTeamBoard()">${editingPost?'Save':'Post'}</button>
+        </div>
       </div>
     </div>
     <div class="flex ic jb mb3">
