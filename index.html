@@ -2139,6 +2139,18 @@ function doUpload(){
 }
 
 // Comment modal
+// ── Local PI comments for anonymous "Share with PI" links (?gist=...) —
+//    there's no account behind that link to persist a comment to, so it's
+//    kept in this browser only (tied to this gist) and offered by email
+//    instead, the same way the old dedicated PI-view page worked. ──
+function localCmtKey(gistId){return 'pi_local_cmts_'+gistId}
+function loadLocalCmts(gistId){try{return JSON.parse(localStorage.getItem(localCmtKey(gistId))||'[]')}catch{return[]}}
+function saveLocalCmt(gistId,cmt){
+  const all=loadLocalCmts(gistId).filter(c=>c.id!==cmt.id);
+  all.push(cmt);
+  localStorage.setItem(localCmtKey(gistId),JSON.stringify(all));
+}
+
 function openCmtModal(recId,cmtId,defaultRole){
   const existing=cmtId?DB.find('cmts',cmtId):null;
   const role=existing?existing.role:(defaultRole||'researcher');
@@ -2157,8 +2169,26 @@ function saveCmt(){
   const text=document.getElementById('cm-text').value.trim();if(!text){alert('Write a comment.');return}
   const cmtId=document.getElementById('cm-id').value;
   const role=document.getElementById('cm-role').value;
+  const recId=document.getElementById('cm-rid').value;
+
+  if(MIRROR&&MIRROR.anonymous){
+    const cmt={id:cmtId||uid(),recId,role,text,at:Date.now()};
+    MIRROR.cmts=(MIRROR.cmts||[]).filter(c=>c.id!==cmt.id).concat(cmt);
+    saveLocalCmt(MIRROR.gistId,cmt);
+    closeM();
+    const email=MIRROR.cfg&&MIRROR.cfg.email;
+    const researcherName=MIRROR.cfg&&MIRROR.cfg.name||'the researcher';
+    if(email&&confirm('Comment saved in this browser. It won\'t reach '+researcherName+' unless you email it — open an email now?')){
+      const subject=encodeURIComponent('LabDaily comment from '+researcherName+"'s shared link");
+      window.open('mailto:'+email+'?subject='+subject+'&body='+encodeURIComponent(text));
+    }else if(!email){
+      toast('Comment saved in this browser (no researcher email on file to notify them).');
+    }
+    return;
+  }
+
   if(cmtId)DB.upd('cmts',cmtId,{text,role,at:Date.now()});
-  else DB.push('cmts',{id:uid(),recId:document.getElementById('cm-rid').value,role,text,at:Date.now()});
+  else DB.push('cmts',{id:uid(),recId,role,text,at:Date.now()});
   toast(cmtId?'Comment updated!':'Posted!','ok');closeM();
 }
 
@@ -3708,9 +3738,15 @@ async function bootFromGist(gistId){
       cfg:{name:payload.researcher||'',role:payload.role||'',lab:payload.lab||'',pi:payload.pi||'',email:payload.email||'',inst:payload.inst||''},
       records:payload.records,projects:payload.projects,atts:payload.atts,files:payload.files,cmts:payload.cmts
     });
+    // No account behind this link to save comments to — mark it so saveCmt()
+    // keeps them in this browser (tied to this gist) instead, and merge in
+    // anything already saved here on an earlier visit.
+    MIRROR.anonymous=true;
+    MIRROR.gistId=gistId;
+    MIRROR.cmts=(MIRROR.cmts||[]).concat(loadLocalCmts(gistId));
     dbxGate(null);
     showMirrorBanner(
-      '🔒 Shared by '+(payload.researcher||'a researcher')+' — read-only view. Anything you do here will not be saved.',
+      '🔒 Shared by '+(payload.researcher||'a researcher')+' — read-only view. Comments you add are saved in this browser only — email them to reach '+(payload.researcher||'the researcher')+'.',
       '',null
     );
     bootApp();
