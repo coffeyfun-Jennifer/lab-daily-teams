@@ -1735,7 +1735,7 @@ async function joinTeam(){
   const btn=document.getElementById('team-join-btn');
   btn.disabled=true;btn.textContent='Joining…';
   try{
-    const team=await LDDropbox.fetchPublicJson(link);
+    const team=await LDDropbox.readSharedFileJson(link);
     DB.s('team',team);
     const c=cfg();
     // Reflect whatever role the roster actually lists for me (matched by
@@ -1754,7 +1754,7 @@ async function refreshTeam(){
   const c=cfg();
   if(!c.teamLink)return;
   try{
-    const team=await LDDropbox.fetchPublicJson(c.teamLink);
+    const team=await LDDropbox.readSharedFileJson(c.teamLink);
     DB.s('team',team);
     toast('Team roster refreshed','t-ok');
   }catch(e){

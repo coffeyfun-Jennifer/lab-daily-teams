@@ -360,16 +360,6 @@
     }
   }
 
-  // ── Fetch JSON from a public Dropbox shared link (no login needed —
-  //    used by team members to pull the roster their PI shared) ──
-  async function fetchPublicJson(link) {
-    let url = link.trim();
-    url = url.includes('dl=0') ? url.replace('dl=0', 'dl=1') : (url.includes('dl=1') ? url : url + (url.includes('?') ? '&dl=1' : '?dl=1'));
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Could not load that link (HTTP ' + res.status + ')');
-    return res.json();
-  }
-
   // ── PI side: read one synced data file out of a team member's LabDaily
   //    folder using nothing but the plain Dropbox share link the member
   //    pasted into their own Settings page. This uses the PI's own (already
@@ -400,6 +390,22 @@
     return downloadSharedLinkFile(link, `/data/${key}.json`);
   }
 
+  // ── Read a Dropbox share link that points directly at one file (e.g. a
+  //    team roster link from getShareLinkFor('team')), as opposed to
+  //    readMemberDataFromLink's folder-relative-path links. `path` is
+  //    omitted so the API resolves the link's own target, not a child of it.
+  //    Goes through Dropbox's authenticated API (same as
+  //    downloadSharedLinkFile) rather than a plain cross-origin fetch to
+  //    dropbox.com — that plain-fetch approach silently fails in browsers
+  //    because the www.dropbox.com -> dl.dropboxusercontent.com redirect
+  //    it depends on isn't CORS-enabled on the first hop, even though the
+  //    same link works fine from curl or other non-CORS clients. Requires
+  //    the caller to already be logged into Dropbox, same as every other
+  //    function here except login() itself. ──
+  async function readSharedFileJson(link) {
+    return downloadSharedLinkFile(link);
+  }
+
   // ── Push an already-in-memory value straight to Dropbox, bypassing the
   //    local namespaced copy entirely. Used for recovering legacy data too
   //    large to duplicate in localStorage (which has a hard ~5-10MB
@@ -421,7 +427,7 @@
   window.LDDropbox = {
     isLoggedIn, login, logout, currentUid,
     getAuth, pullAll, wrapDB, handleCallbackIfPresent, consumeReturnState,
-    pushNow, forceResyncAll, getShareLinkFor, fetchPublicJson,
+    pushNow, forceResyncAll, getShareLinkFor, readSharedFileJson,
     readMemberDataFromLink, pushRaw, pullRaw, uploadAttachment
   };
 })();
