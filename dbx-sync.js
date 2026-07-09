@@ -289,15 +289,24 @@
   }
 
   // ── Wrap the page's existing DB.g/DB.s so every read/write is
-  //    namespaced by account and every write mirrors to Dropbox ──
+  //    namespaced by account and every write mirrors to Dropbox.
+  //    MIRROR (declared in index.html) is honored here too: it's set while
+  //    the PI is viewing a team member's read-only mirror, and these are the
+  //    DB.g/DB.s that are actually live at that point (this function runs at
+  //    boot, replacing the page's originals) — so the guard has to live here
+  //    too, not just in the page's own DB definition, or a PI viewing a
+  //    mirror could silently write into their own real synced data. ──
   function wrapDB() {
     if (typeof DB === 'undefined') return;
-    const origG = DB.g.bind(DB);
-    const origS = DB.s.bind(DB);
     DB.g = function (k) {
+      if (typeof MIRROR !== 'undefined' && MIRROR) return MIRROR[k] !== undefined ? JSON.parse(JSON.stringify(MIRROR[k])) : null;
       try { return JSON.parse(localStorage.getItem(nsKey(k)) || 'null'); } catch { return null; }
     };
     DB.s = function (k, v) {
+      if (typeof MIRROR !== 'undefined' && MIRROR) {
+        if (typeof toast === 'function') toast("Read-only — viewing " + (MIRROR.name || 'this member') + "’s LabDaily. Nothing here can be saved.", 'err');
+        return;
+      }
       localStorage.setItem(nsKey(k), JSON.stringify(v));
       if (SYNC_KEYS.includes(k)) schedulePush(k);
     };
