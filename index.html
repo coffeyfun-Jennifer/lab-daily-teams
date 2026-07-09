@@ -1199,10 +1199,24 @@ let TB_PEND_FILES=[];
 let TEAM_BOARD_CACHE=[];
 let TEAM_BOARD_FETCHED=false;
 let TB_EDITING_ID=null;
+let TB_EDITING_ANNOUNCEMENT=false;
+const ANNOUNCEMENT_ID='team_announcement';
+const TB_QUICK_EMOJI=['👍','❤️','🎉','👏','😄'];
 
+// Regular messages/comments/reactions: unique by id, first source wins —
+// each id only ever originates from ONE author's own outbox, so there's
+// nothing to reconcile. The one exception is the shared announcement
+// (ANNOUNCEMENT_ID, same id everywhere since anyone can edit it) — for
+// that id specifically, the most recently edited copy wins instead of
+// whichever source happened to be listed first.
 function mergeTeamPosts(...lists){
+  const flat=lists.flat().filter(Boolean);
   const seen=new Map();
-  lists.flat().forEach(p=>{if(p&&p.id&&!seen.has(p.id))seen.set(p.id,p)});
+  flat.forEach(p=>{if(p.id&&p.id!==ANNOUNCEMENT_ID&&!seen.has(p.id))seen.set(p.id,p)});
+  const announcements=flat.filter(p=>p.id===ANNOUNCEMENT_ID);
+  if(announcements.length){
+    seen.set(ANNOUNCEMENT_ID,announcements.sort((a,b)=>(b.editedAt||b.at||0)-(a.editedAt||a.at||0))[0]);
+  }
   return[...seen.values()];
 }
 
@@ -1221,12 +1235,15 @@ function handleTeamBoardFiles(files){
   if(prev)prev.innerHTML=TB_PEND_FILES.map(f=>`<div class="fi-row mb2">${ficon(f.name)}<div class="fi-info"><div class="fi-name">${esc(f.name)}</div><div class="fi-meta">${fsz(f.size)}</div></div></div>`).join('');
 }
 
-// Edit is restricted to posts still present in this account's own
-// team_posts — that's the only data a member can actually change, since
-// everyone else's copy lives in their own Dropbox.
+// Edit/delete/pin are restricted to messages still present in this
+// account's own team_posts — that's the only data a member can actually
+// change, since everyone else's copy lives in their own Dropbox. The
+// announcement is the one exception (see editAnnouncement) — anyone can
+// edit that, by design.
 function editTeamPost(id){
   if(!DB.find('team_posts',id)){toast('You can only edit your own posts','err');return;}
   TB_EDITING_ID=id;
+  TB_EDITING_ANNOUNCEMENT=false;
   go('teamboard');
 }
 function cancelEditTeamPost(){
@@ -1235,18 +1252,70 @@ function cancelEditTeamPost(){
 }
 function deleteTeamPost(id){
   if(!DB.find('team_posts',id)){toast('You can only delete your own posts','err');return;}
-  if(!confirm('Delete this post? This can\'t be undone.'))return;
+  if(!confirm('Delete this message? This can\'t be undone.'))return;
   DB.del('team_posts',id);
   TB_EDITING_ID=null;
-  toast('Post deleted','ok');
+  toast('Message deleted','ok');
   go('teamboard');
 }
-// Pinning is limited to your own posts, same as edit/delete — there's no
-// write access to anyone else's outbox to pin theirs instead.
 function togglePinTeamPost(id){
   const post=DB.find('team_posts',id);
   if(!post){toast('You can only pin your own posts','err');return;}
   DB.upd('team_posts',id,{pinned:!post.pinned});
+  go('teamboard');
+}
+
+// ── Announcement: a single shared box anyone on the team can edit ──
+function editAnnouncement(){
+  TB_EDITING_ANNOUNCEMENT=true;
+  TB_EDITING_ID=null;
+  go('teamboard');
+}
+function cancelEditAnnouncement(){
+  TB_EDITING_ANNOUNCEMENT=false;
+  go('teamboard');
+}
+function saveAnnouncement(){
+  const text=(document.getElementById('tb-announcement-text')?.value||'').trim();
+  const c=cfg();
+  const existing=DB.find('team_posts',ANNOUNCEMENT_ID);
+  const patch={text,authorName:c.name||'Someone',authorEmail:c.email||'',at:existing?existing.at:Date.now(),editedAt:Date.now()};
+  if(existing)DB.upd('team_posts',ANNOUNCEMENT_ID,patch);
+  else DB.push('team_posts',{id:ANNOUNCEMENT_ID,...patch});
+  TB_EDITING_ANNOUNCEMENT=false;
+  toast('Announcement updated!','ok');
+  go('teamboard');
+}
+
+// ── Comments & emoji reactions: both are just team_posts entries tagged
+//    with parentId — a reaction is a comment whose payload is `emoji`
+//    instead of `text`. Both flow through the exact same sync/merge/
+//    aggregate pipeline as messages, no separate mechanism needed. ──
+function postComment(messageId){
+  const input=document.getElementById('tb-comment-'+messageId);
+  const text=(input?.value||'').trim();
+  if(!text)return;
+  const c=cfg();
+  DB.push('team_posts',{id:uid(),parentId:messageId,text,authorName:c.name||'Someone',authorEmail:c.email||'',at:Date.now()});
+  go('teamboard');
+}
+function deleteTeamComment(id){
+  if(!DB.find('team_posts',id)){toast('You can only delete your own comments','err');return;}
+  DB.del('team_posts',id);
+  go('teamboard');
+}
+// Toggle: react if you haven't with this emoji on this message yet, else
+// un-react. "Mine" just means it's in my own team_posts — DB.list always
+// resolves to this account's own data (or the read-only mirror's, where
+// DB.push is a no-op anyway), so no author-matching is needed.
+function toggleReaction(messageId,emoji){
+  const mine=DB.list('team_posts').find(p=>p.parentId===messageId&&p.emoji===emoji);
+  if(mine){
+    DB.del('team_posts',mine.id);
+  }else{
+    const c=cfg();
+    DB.push('team_posts',{id:uid(),parentId:messageId,emoji,authorName:c.name||'Someone',authorEmail:c.email||'',at:Date.now()});
+  }
   go('teamboard');
 }
 
@@ -1255,12 +1324,12 @@ async function postToTeamBoard(){
   const text=(textEl?.value||'').trim();
   if(!text&&!TB_PEND_FILES.length){toast('Write something or attach a file first','err');return;}
   const btn=document.getElementById('tb-post-btn');
-  if(btn){btn.disabled=true;btn.textContent=TB_EDITING_ID?'Saving…':'Posting…';}
+  if(btn){btn.disabled=true;btn.textContent=TB_EDITING_ID?'Saving…':'Sending…';}
 
   if(TB_EDITING_ID){
     DB.upd('team_posts',TB_EDITING_ID,{text,editedAt:Date.now()});
     TB_EDITING_ID=null;
-    toast('Post updated!','ok');
+    toast('Message updated!','ok');
     go('teamboard');
     return;
   }
@@ -1286,7 +1355,7 @@ async function postToTeamBoard(){
   const post={id:uid(),authorName:c.name||'Someone',authorEmail:c.email||'',role:c.teamRole||'member',text,files,at:Date.now()};
   DB.push('team_posts',post);
   TB_PEND_FILES=[];
-  toast('Posted!','ok');
+  toast('Sent!','ok');
   go('teamboard');
 }
 
@@ -1339,19 +1408,43 @@ async function syncTeamBoard(){
       await LDDropbox.pushNow('team');
     }
     await LDDropbox.pushNow('team_board');
-    toast(`Synced! ${merged.length} total post${merged.length!==1?'s':''}.`,'ok');
+    toast(`Synced! ${merged.length} total item${merged.length!==1?'s':''}.`,'ok');
   }catch(e){
     toast('Merged locally, but could not publish for the team: '+e.message,'err');
   }
   go('teamboard');
 }
 
-function renderTeamBoardFeed(posts){
-  if(!posts.length)return`<div class="card" style="text-align:center;padding:40px"><p class="muted">No posts yet — be the first to share something.</p></div>`;
-  const myIds=new Set(DB.list('team_posts').map(p=>p.id));
-  // Pinned posts first (newest-pinned first), then everything else by time.
-  const sorted=posts.slice().sort((a,b)=>(!!b.pinned-!!a.pinned)||(b.at-a.at));
-  return sorted.map(p=>`
+function renderAnnouncementBox(merged){
+  const a=merged.find(p=>p.id===ANNOUNCEMENT_ID);
+  if(TB_EDITING_ANNOUNCEMENT){
+    return`<div class="card mb4" style="border-color:#f59e0b;background:#fffbeb">
+      <div class="card-title mb3">📢 Announcement</div>
+      <textarea class="ft" id="tb-announcement-text" placeholder="Write a shared announcement for the whole team…" style="min-height:70px">${esc(a?a.text:'')}</textarea>
+      <div class="flex ic jb mt2">
+        <button class="btn btn-secondary btn-sm" onclick="cancelEditAnnouncement()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="saveAnnouncement()">Save Announcement</button>
+      </div>
+    </div>`;
+  }
+  return`<div class="card mb4" style="border-color:#f59e0b;background:#fffbeb">
+    <div class="flex ic jb mb2">
+      <div class="card-title" style="margin:0">📢 Announcement</div>
+      <button class="icon-btn" title="Anyone on the team can edit this" onclick="editAnnouncement()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+    </div>
+    ${a&&a.text?`<p class="sm" style="white-space:pre-wrap;color:var(--text2)">${esc(a.text)}</p><div class="xs muted mt2">Last updated by ${esc(a.authorName||'someone')} · ${ft(a.editedAt||a.at)}</div>`:`<p class="sm muted" style="font-style:italic">No announcement yet — click the pencil to add one. Anyone on the team can edit this box.</p>`}
+  </div>`;
+}
+
+function renderMessageCard(p,myIds,replies){
+  const reactions=(replies||[]).filter(r=>r.emoji);
+  const comments=(replies||[]).filter(r=>r.text&&!r.emoji).sort((a,b)=>a.at-b.at);
+  const reactionCounts={};
+  reactions.forEach(r=>{reactionCounts[r.emoji]=(reactionCounts[r.emoji]||0)+1});
+  const myReplyIds=new Set(DB.list('team_posts').filter(x=>x.parentId===p.id).map(x=>x.id));
+  const myReactionEmoji=new Set(DB.list('team_posts').filter(x=>x.parentId===p.id&&x.emoji).map(x=>x.emoji));
+
+  return`
     <div class="card mb3" ${p.pinned?'style="border-color:#f59e0b"':''}>
       <div class="flex ic jb mb2">
         <div class="flex ic g2u">
@@ -1374,8 +1467,29 @@ function renderTeamBoardFeed(posts){
           ${f.data?`<a class="btn btn-secondary btn-sm" href="${f.data}" download="${esc(f.name)}">⬇</a>`:''}
         </div>
       `).join('')}
-    </div>
-  `).join('');
+      <div class="flex g2u mt3" style="flex-wrap:wrap">
+        ${TB_QUICK_EMOJI.map(e=>`<button class="btn btn-secondary btn-sm" style="padding:3px 9px;${myReactionEmoji.has(e)?'background:var(--primary-light);border-color:var(--primary)':''}" onclick="toggleReaction('${p.id}','${e}')">${e}${reactionCounts[e]?' '+reactionCounts[e]:''}</button>`).join('')}
+      </div>
+      <div class="mt3" style="border-top:1px solid var(--border);padding-top:10px">
+        ${comments.map(cm=>`
+          <div class="flex ic jb mb2" style="gap:6px">
+            <div class="sm" style="flex:1"><strong>${esc(cm.authorName||'Someone')}</strong> <span class="xs muted">${ft(cm.at)}</span><br>${esc(cm.text)}</div>
+            ${myReplyIds.has(cm.id)?`<button class="icon-btn" title="Delete comment" onclick="deleteTeamComment('${cm.id}')">✕</button>`:''}
+          </div>
+        `).join('')}
+        <div class="flex g2u mt2">
+          <input class="fi" id="tb-comment-${p.id}" placeholder="Write a comment…" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();postComment('${p.id}')}">
+          <button class="btn btn-secondary btn-sm" onclick="postComment('${p.id}')">Send</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderTeamBoardFeed(messages,repliesByParent,myIds){
+  if(!messages.length)return`<div class="card" style="text-align:center;padding:40px"><p class="muted">No messages yet — be the first to share something.</p></div>`;
+  // Pinned messages first (newest-pinned first), then everything else by time.
+  const sorted=messages.slice().sort((a,b)=>(!!b.pinned-!!a.pinned)||(b.at-a.at));
+  return sorted.map(p=>renderMessageCard(p,myIds,repliesByParent[p.id])).join('');
 }
 
 function renderTeamBoard(){
@@ -1394,28 +1508,34 @@ function renderTeamBoard(){
   const editingPost=TB_EDITING_ID?DB.find('team_posts',TB_EDITING_ID):null;
   if(TB_EDITING_ID&&!editingPost)TB_EDITING_ID=null; // post no longer exists (edge case)
 
+  const messages=merged.filter(p=>p.id!==ANNOUNCEMENT_ID&&!p.parentId);
+  const repliesByParent={};
+  merged.filter(p=>p.parentId).forEach(r=>{(repliesByParent[r.parentId]=repliesByParent[r.parentId]||[]).push(r)});
+  const myIds=new Set(DB.list('team_posts').map(p=>p.id));
+
   pg(`
+    ${renderAnnouncementBox(merged)}
     <div class="card mb4">
-      <div class="card-title mb3">${editingPost?'✎ Edit Post':'📝 New Post'}</div>
-      <textarea class="ft" id="tb-text" placeholder="Share an announcement or message with the team…" style="min-height:80px">${esc(editingPost?editingPost.text:'')}</textarea>
+      <div class="card-title mb3">${editingPost?'✎ Edit Message':'💬 New Message'}</div>
+      <textarea class="ft" id="tb-text" placeholder="Send a message to the team…" style="min-height:80px">${esc(editingPost?editingPost.text:'')}</textarea>
       ${editingPost?'':'<div class="mt2" id="tb-file-prev"></div>'}
       <div class="flex ic jb mt2">
         ${editingPost?`<button class="btn btn-secondary btn-sm" onclick="cancelEditTeamPost()">Cancel</button>`:`<label class="btn btn-secondary btn-sm" style="cursor:pointer">📎 Attach Files<input type="file" multiple style="display:none" onchange="handleTeamBoardFiles(this.files)"></label>`}
         <div class="flex g2u">
           ${editingPost?`<button class="btn btn-danger btn-sm" onclick="deleteTeamPost('${editingPost.id}')">🗑 Delete</button>`:''}
-          <button class="btn btn-primary btn-sm" id="tb-post-btn" onclick="postToTeamBoard()">${editingPost?'Save':'Post'}</button>
+          <button class="btn btn-primary btn-sm" id="tb-post-btn" onclick="postToTeamBoard()">${editingPost?'Save':'Send'}</button>
         </div>
       </div>
     </div>
     <div class="flex ic jb mb3">
-      <div class="sec-title">Team Feed</div>
+      <div class="sec-title">Messages</div>
       <div class="flex g2u">
         <button class="btn btn-secondary btn-sm" onclick="refreshTeamBoard()">🔄 Refresh</button>
         ${isOwner?`<button class="btn btn-secondary btn-sm" id="tb-sync-btn" onclick="syncTeamBoard()">📡 Sync Team Board</button>`:''}
       </div>
     </div>
-    ${!isOwner?`<p class="xs muted mb3">💡 Your own posts show up right away. Posts from other members appear after ${esc(c.pi||'the team owner')} syncs — click Refresh to check for updates.</p>`:'<p class="xs muted mb3">💡 As team owner, click "Sync Team Board" to pull in everyone else\'s posts and republish the merged feed for the whole team.</p>'}
-    <div id="tb-feed">${renderTeamBoardFeed(merged)}</div>
+    ${!isOwner?`<p class="xs muted mb3">💡 Your own messages, comments, and reactions show up right away. Everyone else's appear after ${esc(c.pi||'the team owner')} syncs — click Refresh to check for updates.</p>`:'<p class="xs muted mb3">💡 As team owner, click "Sync Team Board" to pull in everyone else\'s messages, comments, and reactions, then republish the merged feed for the whole team.</p>'}
+    <div id="tb-feed">${renderTeamBoardFeed(messages,repliesByParent,myIds)}</div>
   `);
 
   if(!isOwner&&team.boardLink&&!TEAM_BOARD_FETCHED){
