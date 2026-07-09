@@ -323,12 +323,12 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
     <div class="topbar-title" id="tbTitle">Today's Record</div>
     <div class="topbar-actions" id="tbAct"></div>
   </div>
-  <!-- Shown only while the PI is viewing a team member's mirrored data (see
-       enterMemberView/exitMemberView). Sits outside #pg/#tbAct so it survives
-       every normal page navigation untouched. -->
+  <!-- Shown whenever MIRROR is set — viewing a team member from the PI Team
+       Dashboard, or a "Share with PI" link. Sits outside #pg/#tbAct so it
+       survives every normal page navigation untouched. -->
   <div id="mirror-banner" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:#7c3aed;color:#fff;padding:8px 20px;font-size:13px;font-weight:600">
-    <span>🔒 Viewing <strong id="mirror-banner-name">member</strong>'s LabDaily — read-only mirror. Anything you do here will not be saved.</span>
-    <button class="btn btn-sm" style="background:#fff;color:#7c3aed" onclick="exitMemberView()">← Exit to Team Dashboard</button>
+    <span id="mirror-banner-text"></span>
+    <button id="mirror-banner-exit" class="btn btn-sm" style="background:#fff;color:#7c3aed">← Exit</button>
   </div>
   <div class="content" id="pg"></div>
 </div>
@@ -1122,27 +1122,50 @@ async function viewTeamMember(i){
 }
 
 // ══════════════════════════════
-//  MEMBER VIEW (mirror mode) — clicking "View" on a team member shows the
-//  member's own LabDaily exactly as they see it themselves: same sidebar,
+//  MEMBER VIEW (mirror mode) — used by both (a) "View" on a team member in
+//  the PI Team Dashboard, and (b) an anonymous "Share with PI" link
+//  (?gist=..., see bootFromGist below). Either way the viewer sees the
+//  exact same LabDaily interface the owner sees themselves — same sidebar,
 //  same pages, same buttons, no separate/simplified re-implementation. This
 //  works by setting MIRROR (see DB above) so DB.g/DB.list/DB.find serve the
-//  member's data instead of localStorage, then just calling go('today') —
+//  mirrored data instead of localStorage, then just calling go('today') —
 //  every existing render function (renderToday, renderProjects, the ELN
 //  editors, Settings, PI View, Templates, everything) runs completely
 //  unmodified against that data. DB.s refuses to write while MIRROR is set
 //  (with a toast explaining why), so nothing typed or clicked here can ever
-//  reach the PI's real data or the member's actual Dropbox.
+//  reach anyone's real data.
 // ══════════════════════════════
-function enterMemberView(name,data){
+function setMirrorData(name,data){
   MIRROR={
     name,
     cfg:data.cfg&&Object.keys(data.cfg).length?data.cfg:{name,role:'',lab:data.lab||'',pi:'',email:'',inst:''},
     records:data.records||[],projects:data.projects||[],atts:data.atts||[],cmts:data.cmts||[],files:data.files||[],
     team:null
   };
+}
+
+function showMirrorBanner(text,exitLabel,exitFn){
   const banner=document.getElementById('mirror-banner');
   banner.style.display='flex';
-  document.getElementById('mirror-banner-name').textContent=name||'this member';
+  document.getElementById('mirror-banner-text').textContent=text;
+  const btn=document.getElementById('mirror-banner-exit');
+  if(exitFn){
+    btn.style.display='';
+    btn.textContent=exitLabel;
+    btn.onclick=exitFn;
+  }else{
+    btn.style.display='none';
+  }
+}
+
+// (a) PI Team Dashboard → "View" on a member
+function enterMemberView(name,data){
+  setMirrorData(name,data);
+  showMirrorBanner(
+    '🔒 Viewing '+(name||'this member')+"'s LabDaily — read-only mirror. Anything you do here will not be saved.",
+    '← Exit to Team Dashboard',
+    exitMemberView
+  );
   go('today');
 }
 
@@ -1444,7 +1467,7 @@ function renderSettings(){
         <button class="btn btn-primary" onclick="saveProfile()">Save Settings</button>
         ${c.ghToken?`<div class="mt3 p3" style="background:var(--primary-light);border-radius:var(--r)">
           <p class="sm mb2"><strong>📤 Publish records for PI:</strong> go to <em>Today Summary</em> and click <strong>Share with PI</strong>.</p>
-          ${c.gistId?`<p class="sm muted">Last published link:<br><a href="${siteBaseUrl()}pi-view.html?gist=${c.gistId}" target="_blank" style="word-break:break-all;color:var(--primary)">pi-view.html?gist=${c.gistId}</a></p>`:''}
+          ${c.gistId?`<p class="sm muted">Last published link:<br><a href="${siteBaseUrl()}index.html?gist=${c.gistId}" target="_blank" style="word-break:break-all;color:var(--primary)">index.html?gist=${c.gistId}</a></p>`:''}
         </div>`:'<p class="xs muted mt2">Add your GitHub token above to enable PI sharing.</p>'}
       </div>
       <div class="card mb4">
@@ -3604,8 +3627,10 @@ function bootApp(){
 
   // Seed one generic example project if empty, just to show the format —
   // not tied to any specific research area, so it makes sense for anyone
-  // deploying their own copy of this site.
-  if(!DB.list('projects').length){
+  // deploying their own copy of this site. Never seed into someone else's
+  // mirrored data — an empty project list there just means they haven't
+  // made one, not that this is a fresh account.
+  if(!MIRROR&&!DB.list('projects').length){
     DB.push('projects',{
       name:'Example Project (edit or delete me)',category:'Other',color:'#2563eb',
       tags:['example'],
@@ -3645,7 +3670,54 @@ function showSyncingScreen(){
   `);
 }
 
+// ══════════════════════════════
+//  "Share with PI" links (index.html?gist=...) — see publishToPI() below.
+//  No Dropbox login involved at all: this is a public, anonymous, read-only
+//  view built the same way as the Team Dashboard's member mirror (MIRROR +
+//  the app's own unmodified pages), just fed from a published Gist instead
+//  of a Dropbox folder. MIRROR is never cleared here — there's no owner
+//  identity to "exit" back to, so the banner has no exit button.
+// ══════════════════════════════
+async function bootFromGist(gistId){
+  showSyncingScreen();
+  try{
+    const res=await fetch(`https://api.github.com/gists/${gistId}`);
+    if(!res.ok)throw new Error('Could not load (HTTP '+res.status+')');
+    const gist=await res.json();
+    const fileObj=gist.files&&gist.files['labdaily-pi.json'];
+    if(!fileObj)throw new Error('Shared data not found in this link.');
+    // The Gist API truncates file content around ~1MB; large published
+    // datasets (with embedded file previews) need the raw file instead.
+    let raw=fileObj.content;
+    if(fileObj.truncated){
+      const rawRes=await fetch(fileObj.raw_url);
+      if(!rawRes.ok)throw new Error('Could not load full data (HTTP '+rawRes.status+')');
+      raw=await rawRes.text();
+    }
+    const payload=JSON.parse(raw);
+    setMirrorData(payload.researcher||'Researcher',{
+      cfg:{name:payload.researcher||'',role:payload.role||'',lab:payload.lab||'',pi:payload.pi||'',email:payload.email||'',inst:payload.inst||''},
+      records:payload.records,projects:payload.projects,atts:payload.atts,files:payload.files,cmts:payload.cmts
+    });
+    dbxGate(null);
+    showMirrorBanner(
+      '🔒 Shared by '+(payload.researcher||'a researcher')+' — read-only view. Anything you do here will not be saved.',
+      '',null
+    );
+    bootApp();
+  }catch(e){
+    dbxGate(`
+      <div style="font-size:44px;margin-bottom:14px">❌</div>
+      <h1 style="font-size:22px;font-weight:800;margin-bottom:8px;color:#fff">Could not load</h1>
+      <p style="font-size:14px;color:#94a3b8">${esc(e.message)}</p>
+      <p style="font-size:13px;color:#64748b;margin-top:10px">The link may be expired, or the researcher needs to re-publish it.</p>
+    `);
+  }
+}
+
 (async function boot(){
+  const gistId=new URLSearchParams(location.search).get('gist');
+  if(gistId){await bootFromGist(gistId);return;}
   await LDDropbox.handleCallbackIfPresent();
   if(!LDDropbox.isLoggedIn()){
     showLoginScreen();
@@ -3727,28 +3799,31 @@ async function publishToPI(){
   const status=document.getElementById('sh-status');
   status.innerHTML='<p class="sm" style="color:var(--primary)">⏳ Publishing…</p>';
 
-  // Resolve actual file data from the files table (atts store a fileId pointer)
-  const sharedFiles=atts.map(a=>{
+  const cmts=DB.list('cmts').filter(c=>selRecIds.has(c.recId));
+
+  // Publish atts/files in the app's real schema (not a flattened lookalike
+  // shape) so the shared link can reuse the exact same All Data / project
+  // rendering the researcher sees, instead of a simplified stand-in page.
+  const files=atts.map(a=>{
     const fileRec=DB.find('files',a.fileId);
     const data=fileRec?.data||null;
-    return{
-      id:a.id, name:a.name||'File', date:a.date||'',
-      type:a.fileType||a.type||'', size:a.size||0,
-      // include base64 data only if under ~700KB to stay within Gist limits
-      data:(data&&data.length<950000)?data:null
-    };
-  });
+    // include base64 data only if under ~700KB to stay within Gist limits
+    return data&&data.length<950000?{id:a.fileId,name:a.name,size:a.size,type:a.fileType,data}:null;
+  }).filter(Boolean);
 
   const payload={
     researcher:c.name||'',
+    role:c.role||'',
     lab:c.lab||'',
     pi:c.pi||'',
     email:c.email||'',
-    piEmail:c.piEmail||'',
+    inst:c.inst||'',
     publishedAt:new Date().toISOString(),
     projects,
     records:records.map(r=>({...r})),
-    sharedFiles
+    atts,
+    files,
+    cmts
   };
 
   const gistBody={
@@ -3787,7 +3862,7 @@ async function publishToPI(){
     const cfg0={...c,gistId};
     DB.s('cfg',cfg0);
 
-    const link=`${siteBaseUrl()}pi-view.html?gist=${gistId}`;
+    const link=`${siteBaseUrl()}index.html?gist=${gistId}`;
     status.innerHTML=`
       <div style="background:var(--primary-light);border-radius:var(--r);padding:12px">
         <p class="sm mb2">✅ <strong>Published!</strong> Send this link to ${esc(c.pi||'your PI')}:</p>
