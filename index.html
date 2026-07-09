@@ -272,6 +272,10 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
       <div class="nav-sub-item" onclick="go('pi','comments')">Comments</div>
       <div class="nav-sub-item" onclick="go('pi','team')">Team Dashboard</div>
     </div>
+    <div class="nav-item" id="nav-teamboard" onclick="go('teamboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 3.87 3.85"/><path d="M12 12h.01M16 12h.01M8 16h8"/></svg>
+      Lab Team
+    </div>
     <div class="nav-item" id="nav-templates" onclick="go('templates')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><path d="M13 17h8M17 13v8"/></svg>
       Templates
@@ -1179,6 +1183,191 @@ function exitMemberView(){
 }
 
 // ══════════════════════════════
+//  PAGE: LAB TEAM (announcements / files / a simple team board)
+//
+//  There's no backend here, so this can't be a real-time shared space —
+//  everyone writes to their OWN Dropbox (team_posts, a SYNC_KEY like any
+//  other), and the team owner is the one aggregation point everyone else
+//  already has a link to (team.boardLink, carried inside team.json, which
+//  every member already reads via teamLink from Join Team). A member's own
+//  posts show up for them immediately; other members' posts appear once
+//  the owner runs "Sync Team Board", which pulls everyone's team_posts via
+//  the same memberFolderLinks already collected for the PI Team Dashboard,
+//  merges them, and republishes as team_board.
+// ══════════════════════════════
+let TB_PEND_FILES=[];
+let TEAM_BOARD_CACHE=[];
+let TEAM_BOARD_FETCHED=false;
+
+function mergeTeamPosts(...lists){
+  const seen=new Map();
+  lists.flat().forEach(p=>{if(p&&p.id&&!seen.has(p.id))seen.set(p.id,p)});
+  return[...seen.values()];
+}
+
+function readFileAsDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=e=>resolve(e.target.result);
+    fr.onerror=reject;
+    fr.readAsDataURL(file);
+  });
+}
+
+function handleTeamBoardFiles(files){
+  TB_PEND_FILES=[...files];
+  const prev=document.getElementById('tb-file-prev');
+  if(prev)prev.innerHTML=TB_PEND_FILES.map(f=>`<div class="fi-row mb2">${ficon(f.name)}<div class="fi-info"><div class="fi-name">${esc(f.name)}</div><div class="fi-meta">${fsz(f.size)}</div></div></div>`).join('');
+}
+
+async function postToTeamBoard(){
+  const textEl=document.getElementById('tb-text');
+  const text=(textEl?.value||'').trim();
+  if(!text&&!TB_PEND_FILES.length){toast('Write something or attach a file first','err');return;}
+  const btn=document.getElementById('tb-post-btn');
+  if(btn){btn.disabled=true;btn.textContent='Posting…';}
+
+  const files=[];
+  for(const f of TB_PEND_FILES){
+    try{
+      const data=await readFileAsDataURL(f);
+      // Cap per-file size so the aggregated team_board.json (everyone's
+      // posts merged into one file) doesn't balloon — same ~700KB raw cap
+      // used for Share-with-PI attachments.
+      if(data.length<950000){
+        files.push({name:f.name,size:f.size,type:f.type,data});
+      }else{
+        toast(f.name+' is too large to attach (max ~700KB)','err');
+      }
+    }catch(e){
+      toast('Could not read '+f.name,'err');
+    }
+  }
+
+  const c=cfg();
+  const post={id:uid(),authorName:c.name||'Someone',authorEmail:c.email||'',role:c.teamRole||'member',text,files,at:Date.now()};
+  DB.push('team_posts',post);
+  TB_PEND_FILES=[];
+  toast('Posted!','ok');
+  go('teamboard');
+}
+
+async function refreshTeamBoard(){
+  const team=DB.g('team');
+  if(!team||!team.boardLink){TEAM_BOARD_FETCHED=true;go('teamboard');return;}
+  try{
+    const posts=await LDDropbox.readSharedFileJson(team.boardLink);
+    TEAM_BOARD_CACHE=Array.isArray(posts)?posts:[];
+  }catch(e){
+    toast('Could not refresh team board: '+e.message,'err');
+  }
+  TEAM_BOARD_FETCHED=true;
+  go('teamboard');
+}
+
+// Owner-only: pull every member's own team_posts (via the same Dropbox
+// folder links already pasted into the PI Team Dashboard), merge with this
+// account's own posts, and republish as team_board — the one file every
+// member reads via team.boardLink. Generates that link on first use.
+async function syncTeamBoard(){
+  const c=cfg();
+  if(!c.teamIsOwner){toast('Only the team owner can sync the board','err');return;}
+  const team=DB.g('team');
+  if(!team)return;
+  const btn=document.getElementById('tb-sync-btn');
+  if(btn){btn.disabled=true;btn.textContent='Syncing…';}
+  toast('Syncing team board…');
+
+  const links=c.memberFolderLinks||{};
+  const pulls=await Promise.all(Object.values(links).map(async link=>{
+    try{
+      const posts=await LDDropbox.readMemberDataFromLink(link,'team_posts');
+      return Array.isArray(posts)?posts:[];
+    }catch(e){
+      console.error('Could not pull team_posts for a member',e);
+      return[];
+    }
+  }));
+  const merged=mergeTeamPosts(DB.list('team_board'),DB.list('team_posts'),...pulls);
+  DB.s('team_board',merged);
+
+  try{
+    if(!team.boardLink){
+      const link=await LDDropbox.getShareLinkFor('team_board');
+      DB.s('team',{...team,boardLink:link,updatedAt:Date.now()});
+      await LDDropbox.pushNow('team');
+    }
+    await LDDropbox.pushNow('team_board');
+    toast(`Synced! ${merged.length} total post${merged.length!==1?'s':''}.`,'ok');
+  }catch(e){
+    toast('Merged locally, but could not publish for the team: '+e.message,'err');
+  }
+  go('teamboard');
+}
+
+function renderTeamBoardFeed(posts){
+  if(!posts.length)return`<div class="card" style="text-align:center;padding:40px"><p class="muted">No posts yet — be the first to share something.</p></div>`;
+  return posts.slice().sort((a,b)=>b.at-a.at).map(p=>`
+    <div class="card mb3">
+      <div class="flex ic g2u mb2">
+        <div class="avatar" style="width:28px;height:28px;font-size:11px;background:${p.role==='pi'?'#7c3aed':'var(--primary)'}">${esc((p.authorName||'?')[0].toUpperCase())}</div>
+        <div>
+          <div style="font-weight:700;font-size:13px">${esc(p.authorName||'Someone')}${p.role==='pi'?' <span class="badge b-blue">PI</span>':''}</div>
+          <div class="xs muted">${ft(p.at)}</div>
+        </div>
+      </div>
+      ${p.text?`<p class="sm" style="white-space:pre-wrap;color:var(--text2);margin-bottom:${(p.files||[]).length?'10px':'0'}">${esc(p.text)}</p>`:''}
+      ${(p.files||[]).map(f=>`
+        <div class="fi-row mb2">
+          ${ficon(f.name)}
+          <div class="fi-info"><div class="fi-name">${esc(f.name)}</div><div class="fi-meta">${fsz(f.size)}</div></div>
+          ${f.data?`<a class="btn btn-secondary btn-sm" href="${f.data}" download="${esc(f.name)}">⬇</a>`:''}
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function renderTeamBoard(){
+  const team=DB.g('team');
+  setTB('Lab Team','');
+  if(!team){
+    pg(`<div class="card" style="text-align:center;padding:60px"><p class="muted">Join or create a Lab Team in Settings first.</p></div>`);
+    return;
+  }
+  const c=cfg();
+  const isOwner=!!c.teamIsOwner;
+  const boardPosts=isOwner?DB.list('team_board'):TEAM_BOARD_CACHE;
+  const merged=mergeTeamPosts(boardPosts,DB.list('team_posts'));
+
+  pg(`
+    <div class="card mb4">
+      <div class="card-title mb3">📝 New Post</div>
+      <textarea class="ft" id="tb-text" placeholder="Share an announcement or message with the team…" style="min-height:80px"></textarea>
+      <div class="mt2" id="tb-file-prev"></div>
+      <div class="flex ic jb mt2">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer">📎 Attach Files<input type="file" multiple style="display:none" onchange="handleTeamBoardFiles(this.files)"></label>
+        <button class="btn btn-primary btn-sm" id="tb-post-btn" onclick="postToTeamBoard()">Post</button>
+      </div>
+    </div>
+    <div class="flex ic jb mb3">
+      <div class="sec-title">Team Feed</div>
+      <div class="flex g2u">
+        <button class="btn btn-secondary btn-sm" onclick="refreshTeamBoard()">🔄 Refresh</button>
+        ${isOwner?`<button class="btn btn-secondary btn-sm" id="tb-sync-btn" onclick="syncTeamBoard()">📡 Sync Team Board</button>`:''}
+      </div>
+    </div>
+    ${!isOwner?`<p class="xs muted mb3">💡 Your own posts show up right away. Posts from other members appear after ${esc(c.pi||'the team owner')} syncs — click Refresh to check for updates.</p>`:'<p class="xs muted mb3">💡 As team owner, click "Sync Team Board" to pull in everyone else\'s posts and republish the merged feed for the whole team.</p>'}
+    <div id="tb-feed">${renderTeamBoardFeed(merged)}</div>
+  `);
+
+  if(!isOwner&&team.boardLink&&!TEAM_BOARD_FETCHED){
+    TEAM_BOARD_FETCHED=true; // set before the async call so a second render while it's in flight doesn't refetch
+    refreshTeamBoard();
+  }
+}
+
+// ══════════════════════════════
 //  PAGE: TEMPLATES
 // ══════════════════════════════
 const TMPLS=[
@@ -1761,6 +1950,7 @@ async function joinTeam(){
     // me as PI in the roster.
     const mine=(team.members||[]).find(m=>m.email&&c.email&&m.email.toLowerCase()===c.email.toLowerCase());
     DB.s('cfg',{...c,teamRole:mine?mine.role:'member',teamLink:link,teamIsOwner:false});
+    TEAM_BOARD_FETCHED=false;TEAM_BOARD_CACHE=[];
     toast('Joined '+(team.name||'team')+'!','t-ok');
   }catch(e){
     toast('Could not load that link: '+e.message,'err');
@@ -1774,6 +1964,7 @@ async function refreshTeam(){
   try{
     const team=await LDDropbox.readSharedFileJson(c.teamLink);
     DB.s('team',team);
+    TEAM_BOARD_FETCHED=false;TEAM_BOARD_CACHE=[];
     toast('Team roster refreshed','t-ok');
   }catch(e){
     toast('Refresh failed: '+e.message,'err');
@@ -1785,6 +1976,7 @@ function leaveTeam(){
   if(!confirm('Leave this team? You can rejoin later with the team link.'))return;
   DB.s('team',null);
   DB.s('cfg',{...cfg(),teamRole:'',teamLink:'',teamIsOwner:false});
+  TEAM_BOARD_FETCHED=false;TEAM_BOARD_CACHE=[];
   toast('Left team');
   renderSettings();
 }
@@ -3751,7 +3943,7 @@ const RENDER={
   archive:renderArchive,templates:renderTemplates,search:renderSearch,
   pi:renderPI,ai:renderAI,settings:renderSettings,
   eln:renderELN,dayeln:renderDayELN,
-  todaydetails:renderTodayDetails
+  todaydetails:renderTodayDetails,teamboard:renderTeamBoard
 };
 
 // ══════════════════════════════

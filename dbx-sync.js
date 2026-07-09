@@ -19,7 +19,10 @@
   const DBX_REDIRECT_URI = location.origin + location.pathname;
   const AUTH_KEY = 'dbx_auth'; // {access_token, refresh_token, account_id, expires_at, name, email, appKey}
   const PKCE_KEY = 'dbx_pkce'; // transient: {verifier, state}
-  const SYNC_KEYS = ['cfg', 'records', 'projects', 'atts', 'files', 'cmts', 'team'];
+  // team_posts: this account's own outbox of Lab Team board posts.
+  // team_board: the team owner's merged/published view of everyone's
+  // team_posts, aggregated via syncTeamBoard() in index.html — see there.
+  const SYNC_KEYS = ['cfg', 'records', 'projects', 'atts', 'files', 'cmts', 'team', 'team_posts', 'team_board'];
   const DEBOUNCE_MS = 1500;
   // Absolute root for all of this app's Dropbox paths. Full Dropbox apps
   // (needed for cross-account folder sharing) can't rely on the implicit
