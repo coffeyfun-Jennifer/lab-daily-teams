@@ -206,6 +206,20 @@ hr{border:none;border-top:1px solid var(--border);margin:14px 0}
 #eln-editor hr{border:none;border-top:2px solid var(--border);margin:16px 0}
 #eln-editor blockquote{border-left:3px solid var(--primary);padding-left:14px;color:var(--text3);margin:8px 0;font-style:italic}
 
+/* ── Member View (PI mirror of a team member's own site) ── */
+.mv-eln{padding:16px 18px;line-height:1.8}
+.mv-eln h1{font-size:22px;font-weight:800;color:var(--text);margin:16px 0 8px;border-bottom:2px solid var(--primary);padding-bottom:6px}
+.mv-eln h2{font-size:17px;font-weight:700;color:var(--text);margin:14px 0 5px;border-bottom:1px solid var(--border);padding-bottom:3px}
+.mv-eln h3{font-size:14px;font-weight:700;color:var(--text2);margin:12px 0 4px}
+.mv-eln p{margin:3px 0;color:var(--text2)}
+.mv-eln ul,.mv-eln ol{padding-left:22px;margin:6px 0;color:var(--text2)}
+.mv-eln table{border-collapse:collapse;width:100%;margin:14px 0}
+.mv-eln td,.mv-eln th{border:1px solid var(--border);padding:8px 11px;text-align:left;font-size:13px}
+.mv-eln th{background:var(--surface2);font-weight:700}
+.mv-eln img{max-width:100%;border-radius:8px;margin:10px 0;display:block}
+.mv-eln a{color:var(--primary);text-decoration:underline}
+.mv-eln blockquote{border-left:3px solid var(--primary);padding-left:14px;color:var(--text3);margin:8px 0;font-style:italic}
+
 /* scrollbar */
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
@@ -1078,17 +1092,337 @@ async function viewTeamMember(i){
   el.innerHTML='<p class="sm muted">⏳ Loading…</p>';
   try{
     if(!TEAM_DATA_CACHE[i]){
-      const[records,atts,projects,cmts]=await Promise.all(
-        ['records','atts','projects','cmts'].map(k=>LDDropbox.readMemberDataFromLink(link,k))
+      const[records,atts,projects,cmts,files,mcfg]=await Promise.all(
+        ['records','atts','projects','cmts','files','cfg'].map(k=>LDDropbox.readMemberDataFromLink(link,k))
       );
-      TEAM_DATA_CACHE[i]={records:records||[],atts:atts||[],projects:projects||[],cmts:cmts||[]};
+      TEAM_DATA_CACHE[i]={records:records||[],atts:atts||[],projects:projects||[],cmts:cmts||[],files:files||[],cfg:mcfg||{}};
     }
     const d=TEAM_DATA_CACHE[i];
-    const name=member?(member.name||member.email):'Team member';
-    el.innerHTML=`<div class="card-title mb3">${esc(name)}'s Records</div>`+renderPIRecordsBlock(d.records.slice().reverse(),d.atts,d.cmts,d.projects,name,true);
+    const name=d.cfg.name||(member?(member.name||member.email):'Team member');
+    el.innerHTML='';
+    enterMemberView(i,name,{...d,lab:d.cfg.lab||''});
   }catch(e){
     el.innerHTML=`<p class="sm" style="color:var(--danger)">❌ Could not load this member's data: ${esc(e.message)}</p>`;
   }
+}
+
+// ══════════════════════════════
+//  MEMBER VIEW (mirror mode) — clicking "View" on a team member switches
+//  the whole app (sidebar + content) into a read-only mirror of that
+//  member's own LabDaily site, rendered from data pulled off their shared
+//  Dropbox folder. This is a fully separate render/router (mv*) from the
+//  live app's DB/go()/RENDER — it never calls DB.s/push/upd/del, so there
+//  is no code path here that could write into (or corrupt) anyone's real
+//  data. Only the pages that show a researcher's actual notebook content
+//  are mirrored (Today Summary, Today Details, Projects, Daily Records,
+//  All Data) — account-level pages like Settings/AI/PI View don't apply
+//  to viewing someone else's read-only mirror.
+// ══════════════════════════════
+let MV=null, MV_YR=null, MV_MO=null, ORIG_SIDEBAR_HTML=null;
+
+function mvFind(list,id){return (list||[]).find(x=>x.id===id)||null}
+
+function enterMemberView(idx,name,data){
+  const sidebar=document.getElementById('sidebar');
+  if(!ORIG_SIDEBAR_HTML)ORIG_SIDEBAR_HTML=sidebar.innerHTML;
+  MV={idx,name,lab:data.lab||'',records:data.records||[],projects:data.projects||[],atts:data.atts||[],files:data.files||[],cmts:data.cmts||[]};
+  MV_YR=null;MV_MO=null;
+  sidebar.innerHTML=mvSidebarHtml();
+  mvGo('today');
+}
+
+function exitMemberView(){
+  MV=null;
+  document.getElementById('sidebar').innerHTML=ORIG_SIDEBAR_HTML;
+  go('pi','team');
+}
+
+function mvSidebarHtml(){
+  return`
+  <div class="sidebar-logo"><h1>🧬 LabDaily</h1><p>Team Mirror View</p></div>
+  <div style="padding:12px 12px 4px">
+    <div class="user-card">
+      <div class="avatar" style="background:#7c3aed">${esc((MV.name||'?')[0].toUpperCase())}</div>
+      <div style="min-width:0">
+        <div style="font-size:13px;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(MV.name||'Team member')}</div>
+        <div class="xs" style="color:#64748b">Read-only mirror</div>
+      </div>
+    </div>
+  </div>
+  <div class="nav-group">
+    <div class="nav-group-label">${esc(MV.name||'Member')}'s Notebook</div>
+    <div class="nav-item" id="mvnav-today" onclick="mvGo('today')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Today Summary
+    </div>
+    <div class="nav-item" id="mvnav-todaydetails" onclick="mvGo('todaydetails')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Today Details
+    </div>
+    <div class="nav-item" id="mvnav-projects" onclick="mvGo('projects')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7a2 2 0 0 1 2-2h4l2 3h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"/></svg>
+      Projects
+    </div>
+    <div class="nav-item" id="mvnav-records" onclick="mvGo('records')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+      Daily Records
+    </div>
+    <div class="nav-item" id="mvnav-archive" onclick="mvGo('archive')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+      All Data
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <p class="xs muted mb2">🔒 Viewing ${esc(MV.name||'this member')}'s shared Dropbox folder — view-only, nothing here can be edited or deleted.</p>
+    <button class="btn btn-secondary btn-sm" style="width:100%" onclick="exitMemberView()">← Exit to Team Dashboard</button>
+  </div>`;
+}
+
+const MV_RENDER={today:mvRenderToday,todaydetails:mvRenderTodayDetails,projects:mvRenderProjects,records:mvRenderRecords,archive:mvRenderArchive};
+
+function mvGo(page,sub){
+  MV.cur=page;MV.curSub=sub;
+  document.querySelectorAll('#sidebar .nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('mvnav-'+page)?.classList.add('active');
+  MV_RENDER[page]?.(sub);
+}
+
+function mvFiRow(a){
+  const pr=mvFind(MV.projects,a.projId);
+  const f=a.fileId?mvFind(MV.files,a.fileId):null;
+  return`<div class="fi-row mb2">
+    ${ficon(a.name)}
+    <div class="fi-info"><div class="fi-name">${esc(a.name)}</div>
+    <div class="fi-meta">${fsz(a.size)}${a.description?' · '+esc(a.description):''}${pr?' · '+esc(pr.name):''} · ${ft(a.uploadedAt)}</div></div>
+    ${f&&f.data?`<a class="btn btn-secondary btn-sm" href="${f.data}" download="${esc(a.name)}">⬇</a>`:`<span class="xs muted" style="white-space:nowrap">No preview</span>`}
+  </div>`;
+}
+
+// ── Today Summary ──
+function mvRenderToday(dateOverride){
+  const records=(MV.records||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const rec=dateOverride?records.find(r=>r.date===dateOverride):records[0];
+  setTB('Today Summary — '+(MV.name||''),'');
+  if(!rec){pg(`<div class="card" style="text-align:center;padding:60px"><p class="muted">No records shared yet.</p></div>`);return}
+
+  const exps=rec.experiments||[];
+  const atts=(MV.atts||[]).filter(a=>a.date===rec.date);
+  const cmts=(MV.cmts||[]).filter(c=>c.recId===rec.id);
+  const projects=MV.projects||[];
+  const linkedProjs=(rec.projIds||[]).map(id=>mvFind(projects,id)).filter(Boolean);
+
+  pg(`
+    <div class="card mb3" style="padding:12px 16px">
+      <div class="flex ic jb">
+        <div>
+          <div style="font-weight:700;font-size:15px">${fd(rec.date)}</div>
+          <div class="xs muted">${esc(MV.name)}${MV.lab?' · '+esc(MV.lab):''}</div>
+        </div>
+        <div class="flex ic g2u">${linkedProjs.map(p=>`<span class="badge" style="background:${p.color}18;color:${p.color}">${esc(p.name)}</span>`).join('')}</div>
+      </div>
+    </div>
+    <div class="g2 mb4">
+      <div class="card"><div class="card-title">📋 Overall Summary</div><p style="white-space:pre-wrap;color:var(--text2)">${esc(rec.summary)||'<span class="muted">No summary yet.</span>'}</p></div>
+      <div class="g2" style="grid-template-columns:1fr;gap:10px">
+        <div class="card" style="padding:13px 16px"><div class="card-title mb2">⚠️ Problems</div><p class="sm" style="color:var(--text2);white-space:pre-wrap">${esc(rec.problems)||'<span class="muted">None noted.</span>'}</p></div>
+        <div class="card" style="padding:13px 16px"><div class="card-title mb2">➡️ Next Steps</div><p class="sm" style="color:var(--text2);white-space:pre-wrap">${esc(rec.nextSteps)||'<span class="muted">None planned.</span>'}</p></div>
+      </div>
+    </div>
+    <div class="sec-title">Experiments by Project</div>
+    ${projects.map(p=>{
+      const pe=exps.filter(e=>e.projId===p.id);
+      if(!pe.length&&projects.length>3)return'';
+      return`<div class="card mb3" style="border-left:3px solid ${p.color}">
+        <div class="card-title">${esc(p.name)}</div>
+        ${pe.length?pe.map(e=>`<div class="fi-row mb2"><div class="fi-info"><div class="fi-name">${esc(e.title||'Untitled')}</div><div class="fi-meta">${esc((e.results||'').slice(0,90))}</div></div></div>`).join(''):'<p class="sm muted">No experiments for this project today.</p>'}
+      </div>`;
+    }).join('')||'<p class="muted sm mb4">No projects shared.</p>'}
+
+    <div class="g2 mt3">
+      <div class="card">
+        <div class="card-title">📎 Files (${atts.length})</div>
+        ${atts.length?atts.map(a=>mvFiRow(a)).join(''):'<p class="sm muted">No files for this day.</p>'}
+      </div>
+      <div class="card">
+        <div class="card-title">💬 Comments (${cmts.length})</div>
+        ${cmts.length?cmts.map(c=>`<div class="cmt"><div class="avatar" style="width:26px;height:26px;font-size:10px;background:${c.role==='pi'?'#7c3aed':'var(--primary)'}">${c.role==='pi'?'PI':'R'}</div><div class="cmt-body"><div class="cmt-meta">${c.role==='pi'?'PI':'Researcher'} · ${ft(c.at)}</div><div class="sm">${esc(c.text)}</div></div></div>`).join(''):'<p class="sm muted">No comments yet.</p>'}
+        <div class="mt2">${rec.piReviewed?'<span class="badge b-green">✓ PI Reviewed</span>':'<span class="badge b-orange">Pending review</span>'}</div>
+      </div>
+    </div>
+  `);
+}
+
+// ── Today Details (read-only notebook content) ──
+function mvRenderTodayDetails(dateOverride){
+  const records=(MV.records||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const rec=dateOverride?records.find(r=>r.date===dateOverride):(records.find(r=>r.elnDetail)||records[0]);
+  setTB('Today Details — '+(MV.name||''),'');
+  if(!rec||!rec.elnDetail){
+    pg(`<div class="card" style="text-align:center;padding:60px"><p class="muted">No detailed notes shared yet.</p></div>`);
+    return;
+  }
+  pg(`
+    <div class="card mb3" style="padding:10px 16px"><span class="xs muted">📅 ${fd(rec.date)}</span> <span class="xs muted">· 👤 ${esc(MV.name)}</span></div>
+    <div class="card mv-eln" style="padding:0">${rec.elnDetail}</div>
+  `);
+}
+
+// ── Projects ──
+function mvRenderProjects(sub){
+  const projects=MV.projects||[];
+  setTB('Projects — '+(MV.name||''),'');
+  if(sub){
+    const p=mvFind(projects,sub);
+    if(p){mvRenderProjectDetail(p);return}
+  }
+  if(!projects.length){pg(`<div class="card" style="text-align:center;padding:60px"><p class="muted">No projects shared yet.</p></div>`);return}
+  pg(`<div class="g2">${projects.map(p=>{
+    const exps=(MV.records||[]).flatMap(r=>(r.experiments||[]).filter(e=>e.projId===p.id));
+    const atts=(MV.atts||[]).filter(a=>a.projId===p.id);
+    return`<div class="card" style="border-top:3px solid ${p.color};cursor:pointer" onclick="mvGo('projects','${p.id}')">
+      <div class="ch"><div><div class="card-title">${esc(p.name)}</div><div class="card-sub">${esc(p.category||'')}</div></div>
+      <span class="badge ${p.status==='active'?'b-green':p.status==='paused'?'b-orange':'b-gray'}">${p.status||'active'}</span></div>
+      <p class="sm" style="color:var(--text2);margin-bottom:12px">${esc((p.description||'').slice(0,100))}</p>
+      <div class="flex ic g4u sm muted"><span>🧪 ${exps.length} exp</span><span>📎 ${atts.length} files</span></div>
+    </div>`;
+  }).join('')}</div>`);
+}
+
+function mvRenderProjectDetail(p){
+  const records=MV.records||[];
+  const exps=records.flatMap(r=>(r.experiments||[]).filter(e=>e.projId===p.id).map(e=>({...e,date:r.date})));
+  const linkedRecs=records.filter(r=>(r.projIds||[]).includes(p.id)).sort((a,b)=>b.date.localeCompare(a.date));
+  const atts=(MV.atts||[]).filter(a=>a.projId===p.id);
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  setTB(p.name,`<button class="btn btn-secondary btn-sm" onclick="mvGo('projects')">← Back</button>`);
+  pg(`
+    <div class="g3 mb4">
+      <div class="stat"><div class="stat-label">Daily Records</div><div class="stat-val">${linkedRecs.length}</div></div>
+      <div class="stat"><div class="stat-label">Experiments</div><div class="stat-val">${exps.length}</div></div>
+      <div class="stat"><div class="stat-label">Files</div><div class="stat-val">${atts.length}</div></div>
+    </div>
+    <div class="card mb4"><div class="card-title mb2">About</div><p style="color:var(--text2)">${esc(p.description||'No description.')}</p></div>
+    <div class="tabs">
+      <div class="tab on" onclick="switchTab(this,'mv-ptab-rec','mv-ptab-exp','mv-ptab-files')">Daily Records (${linkedRecs.length})</div>
+      <div class="tab" onclick="switchTab(this,'mv-ptab-exp','mv-ptab-rec','mv-ptab-files')">Experiments (${exps.length})</div>
+      <div class="tab" onclick="switchTab(this,'mv-ptab-files','mv-ptab-rec','mv-ptab-exp')">Files (${atts.length})</div>
+    </div>
+    <div id="mv-ptab-rec">
+      ${linkedRecs.length?linkedRecs.map(r=>{
+        const d=new Date(r.date+'T12:00:00');
+        return`<div class="fi-row mb2" style="cursor:pointer" onclick="mvGo('todaydetails','${r.date}')">
+          <div style="text-align:center;min-width:38px"><div style="font-size:15px;font-weight:800;color:${p.color}">${d.getDate()}</div><div class="xs muted">${MO[d.getMonth()]}</div></div>
+          <div class="fi-info"><div class="fi-name">${esc((r.summary||'').slice(0,100))}</div></div>
+        </div>`;
+      }).join(''):'<p class="sm muted">No daily records linked to this project.</p>'}
+    </div>
+    <div id="mv-ptab-exp" class="hidden">
+      ${exps.length?exps.slice().reverse().map(e=>`<div class="fi-row mb2">
+        <div style="text-align:center;min-width:38px"><div style="font-size:15px;font-weight:800;color:var(--primary)">${new Date(e.date+'T12:00:00').getDate()}</div><div class="xs muted">${MO[new Date(e.date+'T12:00:00').getMonth()]}</div></div>
+        <div class="fi-info"><div class="fi-name">${esc(e.title||'Untitled')}</div><div class="fi-meta">${esc((e.results||'').slice(0,90))}</div></div>
+      </div>`).join(''):'<p class="sm muted">No experiments yet.</p>'}
+    </div>
+    <div id="mv-ptab-files" class="hidden">
+      ${atts.length?atts.slice().reverse().map(a=>mvFiRow(a)).join(''):'<p class="sm muted">No files yet.</p>'}
+    </div>
+  `);
+}
+
+// ── Daily Records (calendar) ──
+function mvRenderRecords(){
+  const records=MV.records||[];
+  const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  if(MV_YR===null){
+    const latest=records.slice().sort((a,b)=>b.date.localeCompare(a.date))[0];
+    const d=latest?new Date(latest.date+'T12:00:00'):new Date();
+    MV_YR=d.getFullYear();MV_MO=d.getMonth();
+  }
+  const yr=MV_YR,mo=MV_MO;
+  const ymSet=new Set(records.map(r=>r.date.slice(0,7)));
+  const ymList=[...ymSet].sort().reverse();
+  const yrStr=String(yr),moStr=String(mo+1).padStart(2,'0'),monthKey=`${yrStr}-${moStr}`;
+  const monthRecs=records.filter(r=>r.date.startsWith(monthKey)).sort((a,b)=>a.date.localeCompare(b.date));
+  const recByDate={};records.forEach(r=>recByDate[r.date]=r);
+
+  const first=new Date(yr,mo,1).getDay();
+  const dim=new Date(yr,mo+1,0).getDate();
+  let cal='';
+  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>cal+=`<div class="cal-h">${d}</div>`);
+  for(let i=0;i<first;i++)cal+=`<div class="cal-d dim"></div>`;
+  for(let d=1;d<=dim;d++){
+    const ds=`${yrStr}-${moStr}-${String(d).padStart(2,'0')}`;
+    const hasR=!!recByDate[ds];
+    cal+=`<div class="cal-d ${hasR?'has':''}" ${hasR?`onclick="mvGo('today','${ds}')" title="${esc((recByDate[ds].summary||'').slice(0,60))}"`:''}><div style="font-weight:${hasR?700:400}">${d}</div></div>`;
+  }
+
+  setTB('Daily Records — '+(MV.name||''),'');
+  pg(`
+    <div style="display:flex;gap:16px;align-items:flex-start">
+      <div style="width:260px;flex-shrink:0">
+        <div class="card mb3">
+          <div class="flex ic jb mb3">
+            <button class="btn btn-secondary btn-sm" onclick="MV_MO--;if(MV_MO<0){MV_MO=11;MV_YR--}mvRenderRecords()">‹</button>
+            <div class="card-title" style="margin:0">${MN[mo]} ${yr}</div>
+            <button class="btn btn-secondary btn-sm" onclick="MV_MO++;if(MV_MO>11){MV_MO=0;MV_YR++}mvRenderRecords()">›</button>
+          </div>
+          <div class="cal">${cal}</div>
+        </div>
+        <div class="card">
+          <div class="card-title mb2">All Months</div>
+          ${ymList.length?`<div style="display:flex;flex-direction:column;gap:2px">${ymList.map(ym=>{
+            const[y,m]=ym.split('-');const cnt=records.filter(r=>r.date.startsWith(ym)).length;const active=ym===monthKey;
+            return`<div onclick="MV_YR=${y};MV_MO=${parseInt(m)-1};mvRenderRecords()" style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:6px;cursor:pointer;background:${active?'var(--primary-light)':'transparent'};color:${active?'var(--primary)':'var(--text2)'};font-weight:${active?700:400};font-size:13px">
+              <span>${MN[parseInt(m)-1]} ${y}</span><span class="xs muted">${cnt} day${cnt!==1?'s':''}</span>
+            </div>`;
+          }).join('')}</div>`:'<p class="sm muted">No records yet.</p>'}
+        </div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="flex ic jb mb3"><div style="font-size:15px;font-weight:700">${MN[mo]} ${yr} <span class="xs muted" style="font-weight:400">${monthRecs.length} record${monthRecs.length!==1?'s':''}</span></div></div>
+        ${monthRecs.length?monthRecs.map(r=>{
+          const d=new Date(r.date+'T12:00:00');
+          const linkedProjs=(r.projIds||[]).map(id=>mvFind(MV.projects,id)).filter(Boolean);
+          return`<div class="card mb3" style="padding:0;overflow:hidden">
+            <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);cursor:pointer" onclick="mvGo('today','${r.date}')">
+              <div class="flex ic g2u">
+                <div style="font-size:22px;font-weight:800;color:var(--primary);min-width:28px;text-align:center">${d.getDate()}</div>
+                <div>
+                  <div style="font-weight:700;font-size:13px">${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()]}, ${MN[d.getMonth()]} ${d.getDate()}</div>
+                  <div class="flex ic g2u mt1">${linkedProjs.map(p=>`<span style="font-size:11px;color:${p.color};font-weight:600">${esc(p.name)}</span>`).join('')}</div>
+                </div>
+              </div>
+              <span class="xs muted">View →</span>
+            </div>
+            <div style="padding:14px 16px">
+              <div class="xs muted mb1" style="font-weight:700;text-transform:uppercase">Summary</div>
+              <div style="font-size:13px;color:var(--text2);white-space:pre-wrap;line-height:1.7">${esc(r.summary)||'<span class="muted">No summary.</span>'}</div>
+            </div>
+          </div>`;
+        }).join(''):`<div class="card" style="text-align:center;padding:40px"><p class="muted">No records for ${MN[mo]} ${yr}.</p></div>`}
+      </div>
+    </div>
+  `);
+}
+
+// ── All Data ──
+function mvRenderArchive(sub){
+  sub=sub||'';
+  const allAtts=MV.atts||[];
+  setTB('All Data — '+(MV.name||''),'');
+  const filtered=sub?allAtts.filter(a=>extGroup(a.name)===sub):allAtts;
+  pg(`
+    <div class="g4 mb4">
+      <div class="stat"><div class="stat-label">Total Files</div><div class="stat-val">${allAtts.length}</div></div>
+      <div class="stat"><div class="stat-label">Images</div><div class="stat-val">${allAtts.filter(a=>extGroup(a.name)==='images').length}</div></div>
+      <div class="stat"><div class="stat-label">Excel/CSV</div><div class="stat-val">${allAtts.filter(a=>extGroup(a.name)==='excel').length}</div></div>
+      <div class="stat"><div class="stat-label">PDFs</div><div class="stat-val">${allAtts.filter(a=>extGroup(a.name)==='pdf').length}</div></div>
+    </div>
+    <div class="tabs">${ARCH_TYPE_TABS.map(([v,l])=>`<div class="tab ${sub===v?'on':''}" onclick="mvGo('archive','${v}')">${l}</div>`).join('')}</div>
+    <div class="card">
+      <div class="ch"><div class="card-title">Files (${filtered.length})</div></div>
+      ${filtered.length?filtered.slice().reverse().map(a=>mvFiRow(a)).join(''):`<div style="text-align:center;padding:36px;color:var(--text3)">No files found.</div>`}
+    </div>
+  `);
 }
 
 // ══════════════════════════════
