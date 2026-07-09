@@ -1025,11 +1025,11 @@ function renderPIRecordsBlock(recordsArr,attsAll,cmtsAll,projectsAll,ownerName,r
   }).join('');
 }
 
-// ── PI Team Dashboard: browse each team member's data via a Dropbox
-//    folder they've shared natively (see shareMyDropboxFolder in Settings).
-//    Folders are matched to roster entries by owner display name since
-//    every member's shared folder has the identical name ("LabDaily") —
-//    ambiguous/unmatched ones fall back to a manual picker. ──
+// ── PI Team Dashboard: browse each team member's data via the plain
+//    Dropbox share link they pasted into their own Settings page (see
+//    "Share Data Folder with PI" there). Links are matched to roster
+//    entries by member index and stored locally in this PI's own cfg —
+//    nothing here depends on Dropbox folder-sharing invites. ──
 function renderPITeamPanel(tabHtml){
   const team=DB.g('team');
   if(!team){
@@ -1037,92 +1037,54 @@ function renderPITeamPanel(tabHtml){
     return;
   }
   const c=cfg();
-  const folders=DB.g('piSharedFolders')||[];
-  const matches=c.piTeamMatches||{};
+  const links=c.memberFolderLinks||{};
   const members=team.members||[];
 
   pg(tabHtml+`
     <div class="card mb4">
-      <div class="ch"><div class="card-title" style="margin:0">Discovered Shared Folders</div>
-        <button class="btn btn-secondary btn-sm" onclick="discoverSharedFolders()">🔄 Discover Shared Folders</button></div>
-      <p class="sm muted mb3">Folders your team members have shared with your Dropbox account. If someone's missing, ask them to click "Share my folder" in Settings, then make sure you've accepted the invite in your own Dropbox.</p>
-      ${folders.length?renderFolderMatchRows(folders,members,matches):'<p class="sm muted">No shared folders found yet. Click "Discover Shared Folders" above.</p>'}
+      <div class="card-title mb3">Team Members' Data Folders</div>
+      <p class="sm muted mb3">Ask each member to share their Dropbox <code>LabDaily</code> folder link with you (Settings → Share Data Folder with PI), then paste it below to view their records.</p>
+      ${members.length?members.map((m,i)=>`
+        <div class="flex ic jb g2u mb2" style="padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="min-width:140px"><div class="semi">${esc(m.name||m.email||'Unnamed')}</div><div class="xs muted">${esc(m.email||'')}</div></div>
+          <input class="fi" id="pi-link-${i}" value="${esc(links[i]||'')}" placeholder="https://www.dropbox.com/scl/fo/..." style="flex:1">
+          <button class="btn btn-secondary btn-sm" onclick="saveMemberFolderLink(${i})">Save</button>
+          <button class="btn btn-primary btn-sm" ${!links[i]?'disabled':''} onclick="viewTeamMember(${i})">View</button>
+        </div>
+      `).join(''):'<p class="sm muted">No members yet — add them in Settings.</p>'}
     </div>
     <div id="pi-team-member-view"></div>
   `);
 }
 
-function renderFolderMatchRows(folders,members,matches){
-  return folders.map(f=>{
-    const matchIdx=matches[f.shared_folder_id];
-    const matched=matchIdx!==undefined&&members[matchIdx];
-    const ownerNames=(f.owner_display_names||[]).join(', ');
-    return`<div class="flex ic jb" style="padding:8px 0;border-bottom:1px solid var(--border)">
-      <div>
-        <div class="semi">${esc(f.name||'Unnamed folder')}</div>
-        <div class="xs muted">${ownerNames?'Shared by '+esc(ownerNames):'Owner unknown'}${f.path_lower?'':' · not yet mounted in your Dropbox'}</div>
-      </div>
-      <div class="flex ic g2u">
-        ${matched?`<span class="badge b-blue">${esc(matched.name||matched.email)}</span>`:`
-        <select class="fs" style="padding:4px 8px;font-size:12px" onchange="setTeamMatch('${f.shared_folder_id}',this.value)">
-          <option value="">— match to member —</option>
-          ${members.map((m,i)=>`<option value="${i}">${esc(m.name||m.email)}</option>`).join('')}
-        </select>`}
-        <button class="btn btn-secondary btn-sm" ${!matched||!f.path_lower?'disabled':''} onclick="viewTeamMember('${f.shared_folder_id}')">View</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-async function discoverSharedFolders(){
-  toast('Looking for shared folders…');
-  try{
-    const folders=await LDDropbox.listSharedFolders();
-    DB.s('piSharedFolders',folders);
-    const team=DB.g('team');
-    const members=(team&&team.members)||[];
-    const c=cfg();
-    const matches={...(c.piTeamMatches||{})};
-    folders.forEach(f=>{
-      if(matches[f.shared_folder_id]!==undefined)return; // never clobber an existing (possibly manual) match
-      const owners=(f.owner_display_names||[]).map(n=>n.toLowerCase());
-      const candidates=members.map((m,i)=>({i,name:(m.name||'').toLowerCase()})).filter(m=>m.name&&owners.includes(m.name));
-      if(candidates.length===1)matches[f.shared_folder_id]=candidates[0].i;
-    });
-    DB.s('cfg',{...c,piTeamMatches:matches});
-    toast(`Found ${folders.length} shared folder${folders.length!==1?'s':''}`,'t-ok');
-  }catch(e){
-    toast('Could not list shared folders: '+e.message,'err');
-  }
-  go('pi','team');
-}
-
-function setTeamMatch(folderId,value){
+function saveMemberFolderLink(i){
+  const val=document.getElementById('pi-link-'+i).value.trim();
   const c=cfg();
-  const matches={...(c.piTeamMatches||{})};
-  if(value==='')delete matches[folderId];
-  else matches[folderId]=Number(value);
-  DB.s('cfg',{...c,piTeamMatches:matches});
+  const links={...(c.memberFolderLinks||{})};
+  if(val)links[i]=val; else delete links[i];
+  DB.s('cfg',{...c,memberFolderLinks:links});
+  delete TEAM_DATA_CACHE[i];
+  toast('Saved','t-ok');
   go('pi','team');
 }
 
 const TEAM_DATA_CACHE={};
-async function viewTeamMember(folderId){
-  const folder=(DB.g('piSharedFolders')||[]).find(f=>f.shared_folder_id===folderId);
+async function viewTeamMember(i){
+  const team=DB.g('team');
+  const member=((team&&team.members)||[])[i];
+  const link=(cfg().memberFolderLinks||{})[i];
   const el=document.getElementById('pi-team-member-view');
-  if(!folder||!folder.path_lower){toast("This folder isn't mounted in your Dropbox yet",'err');return;}
+  if(!link){toast('Paste and save a folder link for this member first','err');return;}
   el.innerHTML='<p class="sm muted">⏳ Loading…</p>';
   try{
-    if(!TEAM_DATA_CACHE[folderId]){
+    if(!TEAM_DATA_CACHE[i]){
       const[records,atts,projects,cmts]=await Promise.all(
-        ['records','atts','projects','cmts'].map(k=>LDDropbox.readMemberData(folder.path_lower,k))
+        ['records','atts','projects','cmts'].map(k=>LDDropbox.readMemberDataFromLink(link,k))
       );
-      TEAM_DATA_CACHE[folderId]={records:records||[],atts:atts||[],projects:projects||[],cmts:cmts||[]};
+      TEAM_DATA_CACHE[i]={records:records||[],atts:atts||[],projects:projects||[],cmts:cmts||[]};
     }
-    const d=TEAM_DATA_CACHE[folderId];
-    const matchIdx=(cfg().piTeamMatches||{})[folderId];
-    const member=((DB.g('team')||{}).members||[])[matchIdx];
-    const name=member?(member.name||member.email):(folder.owner_display_names||[])[0]||folder.name;
+    const d=TEAM_DATA_CACHE[i];
+    const name=member?(member.name||member.email):'Team member';
     el.innerHTML=`<div class="card-title mb3">${esc(name)}'s Records</div>`+renderPIRecordsBlock(d.records.slice().reverse(),d.atts,d.cmts,d.projects,name,true);
   }catch(e){
     el.innerHTML=`<p class="sm" style="color:var(--danger)">❌ Could not load this member's data: ${esc(e.message)}</p>`;
@@ -1426,10 +1388,14 @@ function renderSettings(){
       </div>
       <div class="card mb4">
         <div class="card-title mb3">📁 Share Data Folder with PI (Dropbox)</div>
-        <p class="sm muted mb3">Gives ${esc(c.pi||'your PI')} native, always-current, read-only access to your whole LabDaily folder via Dropbox — no manual re-publishing needed. They'll need to accept the share in their own Dropbox first.</p>
-        <button class="btn btn-primary btn-sm" id="dbx-share-btn" onclick="shareMyDropboxFolder()" ${!c.piEmail?'disabled title="Add a PI email above first"':''}>📁 Share my folder with ${esc(c.piEmail||'PI')}</button>
-        <div id="dbx-share-status" class="mt2"></div>
-        ${c.piFolderSharedAt?`<p class="xs muted mt2">Last shared ${new Date(c.piFolderSharedAt).toLocaleString()}</p>`:''}
+        <p class="sm muted mb3">In the Dropbox app or website, share your <code>LabDaily</code> folder (view-only) and paste the link below. Copy it and send it to ${esc(c.pi||'your PI')} — they'll paste it into their PI Dashboard to view your records. Each team member does this with their own Dropbox link.</p>
+        <div class="fg"><label class="fl">Your Data Folder Link</label>
+          <input class="fi" id="s-data-folder-link" value="${esc(c.dataFolderLink||'')}" placeholder="https://www.dropbox.com/scl/fo/...">
+        </div>
+        <div class="flex g2u">
+          <button class="btn btn-primary btn-sm" onclick="saveProfile()">Save</button>
+          ${c.dataFolderLink?`<button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('s-data-folder-link').value).then(()=>toast('Copied!','t-ok'))">Copy Link</button>`:''}
+        </div>
       </div>
       <div class="card mb4">
         <div class="card-title mb3">💾 Backup & Export</div>
@@ -1465,8 +1431,8 @@ function saveProfile(){
     teamRole:prev.teamRole||'',
     teamLink:prev.teamLink||'',
     teamIsOwner:prev.teamIsOwner||false,
-    piFolderSharedAt:prev.piFolderSharedAt||0,
-    piTeamMatches:prev.piTeamMatches||{}
+    dataFolderLink:(document.getElementById('s-data-folder-link')||{}).value||prev.dataFolderLink||'',
+    memberFolderLinks:prev.memberFolderLinks||{}
   };
   DB.s('cfg',c);
   document.getElementById('uname').textContent=c.name||'Researcher';
@@ -1682,23 +1648,6 @@ function leaveTeam(){
   DB.s('team',null);
   DB.s('cfg',{...cfg(),teamRole:'',teamLink:'',teamIsOwner:false});
   toast('Left team');
-  renderSettings();
-}
-
-async function shareMyDropboxFolder(){
-  const c=cfg();
-  if(!c.piEmail)return toast('Add a PI email above first','err');
-  const status=document.getElementById('dbx-share-status');
-  const btn=document.getElementById('dbx-share-btn');
-  if(btn){btn.disabled=true;btn.textContent='Sharing…';}
-  status.innerHTML='<p class="sm" style="color:var(--primary)">⏳ Sharing folder…</p>';
-  try{
-    await LDDropbox.shareDataFolder(c.piEmail);
-    DB.s('cfg',{...cfg(),piFolderSharedAt:Date.now()});
-    status.innerHTML=`<p class="sm" style="color:var(--success)">✅ Shared! ${esc(c.piEmail)} will get a Dropbox notification to accept.</p>`;
-  }catch(e){
-    status.innerHTML=`<p class="sm" style="color:var(--danger)">❌ ${esc(e.message)}</p>`;
-  }
   renderSettings();
 }
 

@@ -281,16 +281,6 @@
     for (const k of SYNC_KEYS) await pushNow(k);
   }
 
-  // ── Make sure the app's root folder exists — sharing/share_folder
-  //    needs a real folder, unlike files/upload which auto-creates
-  //    parent folders along the way ──
-  async function ensureRootFolder() {
-    try {
-      await dbxApi('files/create_folder_v2', { path: DBX_ROOT, autorename: false });
-    } catch (e) {
-      if (!String(e.message).includes('path/conflict')) throw e; // already exists — fine
-    }
-  }
 
   // ── Get (or create) a shareable link to one of this account's own
   //    synced data files — used to distribute the team roster ──
@@ -319,65 +309,34 @@
     return res.json();
   }
 
-  // ── Member side: share this account's whole LabDaily folder with the
-  //    PI's Dropbox account (native Dropbox folder sharing, viewer-only —
-  //    the PI's app never needs write access to a member's own data) ──
-  async function shareDataFolder(piEmail) {
-    await ensureRootFolder();
-    let sharedFolderId;
-    try {
-      const res = await dbxApi('sharing/share_folder', { path: DBX_ROOT });
-      sharedFolderId = res['.tag'] === 'async_job_id'
-        ? await pollShareFolderJob(res.async_job_id)
-        : res.shared_folder_id;
-    } catch (e) {
-      // Already a shared folder (e.g. re-sharing with a 2nd PI later) —
-      // look up its id instead of failing.
-      const existing = await findSharedFolderId(DBX_ROOT);
-      if (!existing) throw e;
-      sharedFolderId = existing;
-    }
-    await dbxApi('sharing/add_folder_member', {
-      shared_folder_id: sharedFolderId,
-      members: [{ member: { '.tag': 'email', email: piEmail }, access_level: { '.tag': 'viewer' } }],
-      quiet: false
+  // ── PI side: read one synced data file out of a team member's LabDaily
+  //    folder using nothing but the plain Dropbox share link the member
+  //    pasted into their own Settings page. This uses the PI's own (already
+  //    logged-in) access token to call Dropbox's get_shared_link_file —
+  //    that endpoint accepts ANY valid Dropbox user token, since the link
+  //    itself is what grants read access, so the member never has to invite
+  //    the PI or wait for them to accept anything in their own Dropbox ──
+  async function downloadSharedLinkFile(link, path, isRetry) {
+    const token = await ensureFreshToken(isRetry);
+    if (!token) throw new Error('Dropbox session expired — please reconnect.');
+    const res = await fetch('https://content.dropboxapi.com/2/sharing/get_shared_link_file', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Dropbox-API-Arg': JSON.stringify({ url: link.trim(), path })
+      }
     });
-    return sharedFolderId;
-  }
-
-  async function pollShareFolderJob(jobId, attempts, delayMs) {
-    attempts = attempts || 12; delayMs = delayMs || 1500;
-    for (let i = 0; i < attempts; i++) {
-      const st = await dbxApi('sharing/check_share_job_status', { async_job_id: jobId });
-      if (st['.tag'] === 'complete') return st.shared_folder_id;
-      if (st['.tag'] === 'failed') throw new Error('Dropbox folder-sharing job failed.');
-      await new Promise(r => setTimeout(r, delayMs));
+    if (res.status === 409) return undefined; // path not found (member hasn't synced this key yet)
+    if (!res.ok) {
+      const err = await res.text();
+      if (!isRetry && err.includes('invalid_access_token')) return downloadSharedLinkFile(link, path, true);
+      throw new Error('Could not read from that folder link: ' + err);
     }
-    throw new Error('Timed out waiting for Dropbox to finish sharing the folder.');
+    return res.json();
   }
 
-  async function findSharedFolderId(path) {
-    try {
-      const res = await dbxApi('sharing/list_folders', { limit: 100 });
-      const hit = (res.entries || []).find(f => (f.path_lower || '').toLowerCase() === path.toLowerCase());
-      return hit ? hit.shared_folder_id : null;
-    } catch { return null; }
-  }
-
-  // ── PI side: discover folders team members have shared with this
-  //    account, and read a member's synced data out of one ──
-  async function listSharedFolders() {
-    let res = await dbxApi('sharing/list_folders', { limit: 100 });
-    let entries = res.entries || [];
-    while (res.cursor) {
-      res = await dbxApi('sharing/list_folders/continue', { cursor: res.cursor });
-      entries = entries.concat(res.entries || []);
-    }
-    return entries;
-  }
-
-  async function readMemberData(mountPath, key) {
-    return dbxDownloadJson(`${mountPath}/data/${key}.json`);
+  async function readMemberDataFromLink(link, key) {
+    return downloadSharedLinkFile(link, `/data/${key}.json`);
   }
 
   // ── Push an already-in-memory value straight to Dropbox, bypassing the
@@ -394,6 +353,6 @@
     isLoggedIn, login, logout, currentUid,
     getAuth, pullAll, wrapDB, handleCallbackIfPresent,
     pushNow, forceResyncAll, getShareLinkFor, fetchPublicJson,
-    shareDataFolder, listSharedFolders, readMemberData, pushRaw
+    readMemberDataFromLink, pushRaw
   };
 })();
