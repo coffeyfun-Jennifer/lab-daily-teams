@@ -1418,6 +1418,24 @@ async function syncTeamBoard(){
   go('teamboard');
 }
 
+function renderTeamMembersBox(team){
+  const members=team.members||[];
+  return`<div class="card mb4">
+    <div class="card-title mb3">👥 ${esc(team.name||'Team')} · ${members.length} member${members.length!==1?'s':''}</div>
+    <div class="g3">
+      ${members.map(m=>`
+        <div class="flex ic g2u" style="padding:8px;border:1px solid var(--border);border-radius:var(--r)">
+          <div class="avatar" style="background:${m.role==='pi'?'#7c3aed':'var(--primary)'};flex-shrink:0">${esc((m.name||'?')[0].toUpperCase())}</div>
+          <div style="min-width:0">
+            <div class="sm semi" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name||'Unnamed')}${m.role==='pi'?' <span class="badge b-blue">PI</span>':''}</div>
+            ${m.email?`<div class="xs muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.email)}</div>`:''}
+          </div>
+        </div>
+      `).join('')||'<p class="sm muted">No members yet.</p>'}
+    </div>
+  </div>`;
+}
+
 function renderAnnouncementBox(merged){
   const a=merged.find(p=>p.id===ANNOUNCEMENT_ID);
   if(TB_EDITING_ANNOUNCEMENT){
@@ -1517,6 +1535,7 @@ function renderTeamBoard(){
   const myIds=new Set(DB.list('team_posts').map(p=>p.id));
 
   pg(`
+    ${renderTeamMembersBox(team)}
     ${renderAnnouncementBox(merged)}
     <div class="card mb4">
       <div class="card-title mb3">${editingPost?'✎ Edit Message':'💬 New Message'}</div>
