@@ -195,6 +195,42 @@
     }
   }
 
+  // ── Mirror a raw uploaded file into a human-browsable folder tree —
+  //    Project name first, then date — so opening this account's shared
+  //    Dropbox link shows real files organized the same way the app
+  //    organizes them, instead of the one opaque `files.json` blob that
+  //    SYNC_KEYS already keeps in perfect sync for in-app use. `mode: add`
+  //    with autorename means two files with the same name on the same day
+  //    both survive (Dropbox appends " (1)") rather than one clobbering
+  //    the other. ──
+  function sanitizeSegment(s) {
+    return String(s || '').trim().replace(/[\/\\:*?"<>|]+/g, '-').replace(/\s+/g, ' ').slice(0, 80) || 'Untitled';
+  }
+
+  async function uploadRawFile(path, file, isRetry) {
+    const token = await ensureFreshToken(isRetry);
+    if (!token) throw new Error('Dropbox session expired — please reconnect.');
+    const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Dropbox-API-Arg': JSON.stringify({ path, mode: 'add', autorename: true, mute: true }),
+        'Content-Type': 'application/octet-stream'
+      },
+      body: file
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      if (!isRetry && err.includes('invalid_access_token')) return uploadRawFile(path, file, true);
+      throw new Error('Dropbox upload failed: ' + err);
+    }
+  }
+
+  async function uploadAttachment(file, projectName, dateStr) {
+    const path = `${DBX_ROOT}/Uploads/${sanitizeSegment(projectName || 'No Project')}/${sanitizeSegment(dateStr || 'Undated')}/${sanitizeSegment(file.name)}`;
+    return uploadRawFile(path, file);
+  }
+
   async function dbxDownloadJson(path, isRetry) {
     const token = await ensureFreshToken(isRetry);
     if (!token) throw new Error('Dropbox session expired — please reconnect.');
@@ -353,6 +389,6 @@
     isLoggedIn, login, logout, currentUid,
     getAuth, pullAll, wrapDB, handleCallbackIfPresent,
     pushNow, forceResyncAll, getShareLinkFor, fetchPublicJson,
-    readMemberDataFromLink, pushRaw
+    readMemberDataFromLink, pushRaw, uploadAttachment
   };
 })();
