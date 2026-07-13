@@ -314,7 +314,18 @@ function setFontSize(px){
 }
 
 // ── INIT ──
-window.onload=function(){
+window.onload=async function(){
+  // This page is a separate document load from index.html, so it starts with
+  // an empty in-memory quota-fallback cache (see dbx-sync.js's memCache) —
+  // any SYNC_KEY too large for localStorage (e.g. files/records once daily
+  // notes carry embedded images) would otherwise be read here as whatever
+  // stale, smaller copy last fit in real localStorage, and any upload/save
+  // made from this page would then push that stale copy back to Dropbox,
+  // silently clobbering newer data. Re-pulling fresh here, exactly like
+  // index.html's own boot() does, closes that gap.
+  if(typeof LDDropbox!=='undefined'&&LDDropbox.isLoggedIn()){
+    try{await LDDropbox.pullAll();}catch(e){console.error('Dropbox sync failed on load',e);}
+  }
   const c=cfg();
   if(MODE==='day') initDayMode(c);
   else initExpMode(c);
@@ -683,6 +694,7 @@ function doUpload(){
       const att={id:uid(),fileId:stored.id,name:file.name,size:file.size,fileType:file.type,date:dateStr,projId,description:desc,tags,uploadedAt:Date.now()};
       if(MODE==='exp')att.expId=EXP_ID;
       DB.push('atts',att);
+      mirrorAttachmentToDropbox(file,projId,dateStr);
       done++;
       if(done===pendFiles.length){pendFiles=[];closePopup();loadAttachments();toast(`${done} file${done!==1?'s':''} uploaded!`,'t-ok')}
     };fr.readAsDataURL(file);
@@ -690,6 +702,19 @@ function doUpload(){
 }
 
 function closePopup(){document.getElementById('popup-container').innerHTML=''}
+
+// Mirrors an uploaded attachment into a real, browsable Dropbox folder
+// (Project name, then date) alongside the existing files.json blob sync —
+// fire-and-forget so a slow/offline Dropbox never blocks the upload UI.
+// Matches index.html's mirrorAttachmentToDropbox exactly.
+function mirrorAttachmentToDropbox(file,projId,dateStr){
+  if(typeof LDDropbox==='undefined')return;
+  const projName=projId?DB.find('projects',projId)?.name:'';
+  LDDropbox.uploadAttachment(file,projName,dateStr).catch(e=>{
+    console.error('Dropbox mirror failed',e);
+    toast('Saved, but Dropbox folder copy failed: '+e.message,'err');
+  });
+}
 
 // ── Print ──
 function doPrint(){
