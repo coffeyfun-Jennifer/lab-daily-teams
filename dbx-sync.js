@@ -73,6 +73,26 @@
     return uid ? `ld_${uid}_${k}` : `ld_${k}`;
   }
 
+  // ── In-memory fallback for values too large for this browser's
+  //    localStorage quota (e.g. records/files once daily notes carry
+  //    embedded images). Keeps the app fully usable for the session —
+  //    Dropbox stays the durable copy, so a reload just re-downloads these
+  //    specific keys instead of the page silently showing stale data. ──
+  const memCache = {};
+  function readRaw(key) {
+    return key in memCache ? memCache[key] : localStorage.getItem(key);
+  }
+  function writeRaw(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      delete memCache[key];
+    } catch (e) {
+      if (e.name !== 'QuotaExceededError') throw e;
+      memCache[key] = value;
+      console.warn(`LabDaily: "${key}" is too large for this browser's localStorage (${(value.length / 1024 / 1024).toFixed(1)}MB) — keeping it in memory for this session instead. It will re-download from Dropbox on next reload.`);
+    }
+  }
+
   const RETURN_STATE_KEY = 'dbx_return_state';
 
   // ── Start login: redirect to Dropbox. `returnState`, if given, is stashed
@@ -271,7 +291,7 @@
     for (const k of SYNC_KEYS) {
       try {
         const val = await dbxDownloadJson(`${DBX_ROOT}/data/${k}.json`);
-        if (val !== undefined) localStorage.setItem(nsKey(k), JSON.stringify(val));
+        if (val !== undefined) writeRaw(nsKey(k), JSON.stringify(val));
       } catch (e) {
         console.error('Dropbox pull failed for', k, e);
       }
@@ -291,7 +311,7 @@
     pendingPushes++;
     updateSyncBadge();
     try {
-      const raw = localStorage.getItem(nsKey(k));
+      const raw = readRaw(nsKey(k));
       const val = raw ? JSON.parse(raw) : null;
       await dbxUploadJson(`${DBX_ROOT}/data/${k}.json`, val);
     } catch (e) {
@@ -319,14 +339,14 @@
     if (typeof DB === 'undefined') return;
     DB.g = function (k) {
       if (typeof MIRROR !== 'undefined' && MIRROR) return MIRROR[k] !== undefined ? JSON.parse(JSON.stringify(MIRROR[k])) : null;
-      try { return JSON.parse(localStorage.getItem(nsKey(k)) || 'null'); } catch { return null; }
+      try { return JSON.parse(readRaw(nsKey(k)) || 'null'); } catch { return null; }
     };
     DB.s = function (k, v) {
       if (typeof MIRROR !== 'undefined' && MIRROR) {
         if (typeof toast === 'function') toast("Read-only — viewing " + (MIRROR.name || 'this member') + "’s LabDaily. Nothing here can be saved.", 'err');
         return;
       }
-      localStorage.setItem(nsKey(k), JSON.stringify(v));
+      writeRaw(nsKey(k), JSON.stringify(v));
       if (SYNC_KEYS.includes(k)) schedulePush(k);
     };
   }

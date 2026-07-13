@@ -253,6 +253,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toasts" id="toasts"></div>
 <div id="popup-container"></div>
 
+<script src="dbx-sync.js"></script>
 <script>
 // ── DB helpers ──
 const DB={
@@ -264,6 +265,11 @@ const DB={
   del(k,id){this.s(k,this.list(k).filter(x=>x.id!==id))},
   find(k,id){return this.list(k).find(x=>x.id===id)||null}
 };
+// Wire into the same Dropbox-namespaced sync layer index.html uses — without
+// this, DB.g/DB.s above fall back to the plain (un-namespaced) 'ld_' keys,
+// which silently strands anything saved here (e.g. attachment uploads)
+// outside this account's data and outside Dropbox sync entirely.
+if (typeof LDDropbox !== 'undefined') LDDropbox.wrapDB();
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function fd(d){if(!d)return'';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
 function ft(ts){if(!ts)return'';return new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
