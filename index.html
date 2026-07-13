@@ -106,10 +106,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
 .modal{background:var(--surface);border-radius:var(--rl);width:100%;max-width:680px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
 .modal-lg{max-width:860px}
+.modal-xl{max-width:1140px}
 .mh{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);z-index:1}
 .mh h2{font-size:16px;font-weight:700}
 .mb{padding:22px}
 .mf{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:8px}
+
+/* ── File preview ── */
+.preview-loading{padding:60px 22px;text-align:center;color:var(--text3);font-size:13px}
+.preview-error{padding:22px;color:var(--danger);font-size:13px}
+.docx-preview{line-height:1.6;font-size:14px;color:var(--text2);max-width:100%;overflow-x:auto}
+.docx-preview h1,.docx-preview h2,.docx-preview h3{color:var(--text1);margin:14px 0 8px}
+.docx-preview p{margin:0 0 10px}
+.docx-preview img{max-width:100%;border-radius:6px}
+.docx-preview table{border-collapse:collapse;margin:10px 0}
+.docx-preview table td,.docx-preview table th{border:1px solid var(--border);padding:6px 9px}
+.sheet-preview-wrap{overflow:auto;max-height:70vh}
+.sheet-preview-wrap table{border-collapse:collapse;font-size:12.5px;white-space:nowrap}
+.sheet-preview-wrap td,.sheet-preview-wrap th{border:1px solid var(--border);padding:5px 9px;color:var(--text2)}
+.sheet-preview-wrap tr:first-child td,.sheet-preview-wrap tr:first-child th{background:var(--surface2);font-weight:700;color:var(--text1)}
+.sheet-tabs{display:flex;gap:6px;flex-wrap:wrap;padding:0 22px 14px;border-bottom:1px solid var(--border)}
+.sheet-tab{padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text2)}
+.sheet-tab.on{background:var(--primary);color:#fff}
 
 /* ── File items ── */
 .fi-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;background:var(--surface)}
@@ -882,6 +900,7 @@ function renderArchive(sub){
             <td class="xs muted">${fsz(a.size)}</td>
             <td><div class="flex ic g2u">
               <button class="icon-btn" onclick="openEditAtt('${a.id}')" title="Edit / Reassign project"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+              ${a.fileId&&isPreviewable(a.name)?`<button class="icon-btn" onclick="previewFile('${a.fileId}','${escAttr(a.name)}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>`:''}
               ${a.fileId?`<button class="icon-btn" onclick="dlFile('${a.fileId}')" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>`:''}
               <button class="icon-btn" onclick="delAtt('${a.id}')" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>
             </div></td>
@@ -968,6 +987,7 @@ function renderArchiveProject(projId,typeFilter){
             <td class="xs muted">${fsz(a.size)}</td>
             <td><div class="flex ic g2u">
               <button class="icon-btn" onclick="openEditAtt('${a.id}')" title="Edit / Reassign project"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+              ${a.fileId&&isPreviewable(a.name)?`<button class="icon-btn" onclick="previewFile('${a.fileId}','${escAttr(a.name)}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>`:''}
               ${a.fileId?`<button class="icon-btn" onclick="dlFile('${a.fileId}')" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>`:''}
               <button class="icon-btn" onclick="delAtt('${a.id}')" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>
             </div></td>
@@ -2692,6 +2712,7 @@ function fiRow(a){
     <div class="fi-info"><div class="fi-name">${esc(a.name)}</div>
     <div class="fi-meta">${fsz(a.size)}${a.description?' · '+esc(a.description):''}${pr?' · '+esc(pr.name):''} · ${ft(a.uploadedAt)}</div></div>
     <div class="flex ic g2u">
+      ${a.fileId&&isPreviewable(a.name)?`<button class="icon-btn" onclick="previewFile('${a.fileId}','${escAttr(a.name)}')" title="Preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg></button>`:''}
       ${a.fileId?`<button class="icon-btn" onclick="dlFile('${a.fileId}')" title="Download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>`:''}
       <button class="icon-btn" onclick="delAtt('${a.id}')" style="color:var(--danger)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><polyline points="3,6 5,6 21,6"/><path d="M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg></button>
     </div>
@@ -2699,6 +2720,119 @@ function fiRow(a){
 }
 function dlFile(fid){const f=DB.find('files',fid);if(!f)return toast('File not found','err');const a=document.createElement('a');a.href=f.data;a.download=f.name;a.click()}
 function delAtt(id){if(!confirm('Delete?'))return;DB.del('atts',id);toast('Deleted');go(CUR,CUR_SUB)}
+
+// ══════════════════════════════
+//  FILE PREVIEW (images, PDF, Word, Excel/CSV) — no download needed
+// ══════════════════════════════
+const PREVIEWABLE_EXTS=['png','jpg','jpeg','gif','bmp','webp','svg','pdf','docx','xls','xlsx','csv','tsv'];
+function previewExt(name){return(name||'').split('.').pop().toLowerCase()}
+function isPreviewable(name){return PREVIEWABLE_EXTS.includes(previewExt(name))}
+function escAttr(s){return esc(s).replace(/'/g,'&#39;')}
+
+function _loadLib(url,checkGlobal){
+  return new Promise((resolve,reject)=>{
+    if(checkGlobal())return resolve();
+    const s=document.createElement('script');
+    s.src=url;
+    s.onload=()=>resolve();
+    s.onerror=()=>reject(new Error('Could not load preview library — check your internet connection.'));
+    document.head.appendChild(s);
+  });
+}
+function dataUriToBytes(dataUri){
+  const base64=dataUri.slice(dataUri.indexOf(',')+1);
+  const binary=atob(base64);
+  const bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+  return bytes;
+}
+
+function _previewShell(name,fileId,bodyHtml,cls){
+  modal(`
+    <div class="mh"><h2 style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    ${bodyHtml}
+    <div class="mf"><button class="btn btn-secondary" onclick="dlFile('${fileId}')">⬇ Download</button><button class="btn btn-primary" onclick="closeM()">Close</button></div>
+  `,cls||'modal-lg');
+}
+function _previewLoading(name){
+  modal(`
+    <div class="mh"><h2 style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="preview-loading">Loading preview…</div>
+  `,'modal-lg');
+}
+function _previewError(name,fileId,msg){
+  modal(`
+    <div class="mh"><h2 style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(name)}</h2><button class="icon-btn" onclick="closeM()">✕</button></div>
+    <div class="preview-error">Could not preview this file: ${esc(msg)}</div>
+    <div class="mf"><button class="btn btn-secondary" onclick="dlFile('${fileId}')">⬇ Download instead</button><button class="btn btn-primary" onclick="closeM()">Close</button></div>
+  `,'modal-lg');
+}
+
+function previewFile(fileId,name){
+  const f=DB.find('files',fileId);
+  if(!f)return toast('File not found','err');
+  const ext=previewExt(name);
+  if(['png','jpg','jpeg','gif','bmp','webp','svg'].includes(ext)){
+    _previewShell(name,fileId,`<div class="mb" style="text-align:center;padding:16px"><img src="${f.data}" style="max-width:100%;max-height:75vh;border-radius:8px"></div>`,'modal-lg');
+  }else if(ext==='pdf'){
+    _previewShell(name,fileId,`<div style="padding:0"><iframe src="${f.data}" style="width:100%;height:78vh;border:none;display:block"></iframe></div>`,'modal-xl');
+  }else if(ext==='docx'){
+    previewDocx(f,name,fileId);
+  }else if(ext==='xls'||ext==='xlsx'){
+    previewSpreadsheet(f,name,fileId);
+  }else if(ext==='csv'||ext==='tsv'){
+    previewDelimited(f,name,fileId,ext==='tsv'?'\t':',');
+  }else{
+    toast('No preview available for this file type — downloading instead');
+    dlFile(fileId);
+  }
+}
+
+async function previewDocx(f,name,fileId){
+  _previewLoading(name);
+  try{
+    await _loadLib('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js',()=>window.mammoth);
+    const bytes=dataUriToBytes(f.data);
+    const result=await mammoth.convertToHtml({arrayBuffer:bytes.buffer});
+    _previewShell(name,fileId,`<div class="mb docx-preview">${result.value||'<p class="muted">This document appears to be empty.</p>'}</div>`,'modal-lg');
+  }catch(err){
+    _previewError(name,fileId,err.message);
+  }
+}
+
+async function previewSpreadsheet(f,name,fileId){
+  _previewLoading(name);
+  try{
+    await _loadLib('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',()=>window.XLSX);
+    const bytes=dataUriToBytes(f.data);
+    const wb=XLSX.read(bytes,{type:'array'});
+    window._previewWb=wb;
+    renderSheetTab(name,fileId,wb.SheetNames[0]);
+  }catch(err){
+    _previewError(name,fileId,err.message);
+  }
+}
+function renderSheetTab(name,fileId,sheetName){
+  const wb=window._previewWb;
+  const html=XLSX.utils.sheet_to_html(wb.Sheets[sheetName],{id:'sheet-preview-table'});
+  const tabs=wb.SheetNames.length>1?`<div class="sheet-tabs">${wb.SheetNames.map(n=>`<div class="sheet-tab ${n===sheetName?'on':''}" onclick="renderSheetTab('${escAttr(name)}','${fileId}','${escAttr(n)}')">${esc(n)}</div>`).join('')}</div>`:'';
+  _previewShell(name,fileId,`${tabs}<div class="sheet-preview-wrap mb">${html}</div>`,'modal-xl');
+}
+
+function previewDelimited(f,name,fileId,delim){
+  try{
+    const bytes=dataUriToBytes(f.data);
+    const text=new TextDecoder('utf-8').decode(bytes);
+    const lines=text.split(/\r\n|\n|\r/).filter(l=>l.length);
+    const MAX_ROWS=500;
+    const rows=lines.slice(0,MAX_ROWS).map(l=>l.split(delim));
+    const html=`<table>${rows.map((cells,i)=>`<tr>${cells.map(c=>`<${i===0?'th':'td'}>${esc(c)}</${i===0?'th':'td'}>`).join('')}</tr>`).join('')}</table>`;
+    const note=lines.length>MAX_ROWS?`<p class="xs muted" style="padding:8px 0 0">Showing first ${MAX_ROWS} of ${lines.length} rows — download for the full file.</p>`:'';
+    _previewShell(name,fileId,`<div class="sheet-preview-wrap mb">${html}${note}</div>`,'modal-xl');
+  }catch(err){
+    _previewError(name,fileId,err.message);
+  }
+}
 
 // Mirrors an uploaded attachment into a real, browsable Dropbox folder
 // (Project name, then date) alongside the existing files.json blob sync —
