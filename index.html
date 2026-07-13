@@ -2724,7 +2724,7 @@ function delAtt(id){if(!confirm('Delete?'))return;DB.del('atts',id);toast('Delet
 // ══════════════════════════════
 //  FILE PREVIEW (images, PDF, Word, Excel/CSV) — no download needed
 // ══════════════════════════════
-const PREVIEWABLE_EXTS=['png','jpg','jpeg','gif','bmp','webp','svg','pdf','docx','xls','xlsx','csv','tsv'];
+const PREVIEWABLE_EXTS=['png','jpg','jpeg','gif','bmp','webp','svg','tif','tiff','pdf','docx','xls','xlsx','csv','tsv'];
 function previewExt(name){return(name||'').split('.').pop().toLowerCase()}
 function isPreviewable(name){return PREVIEWABLE_EXTS.includes(previewExt(name))}
 function escAttr(s){return esc(s).replace(/'/g,'&#39;')}
@@ -2774,6 +2774,8 @@ function previewFile(fileId,name){
   const ext=previewExt(name);
   if(['png','jpg','jpeg','gif','bmp','webp','svg'].includes(ext)){
     _previewShell(name,fileId,`<div class="mb" style="text-align:center;padding:16px"><img src="${f.data}" style="max-width:100%;max-height:75vh;border-radius:8px"></div>`,'modal-lg');
+  }else if(ext==='tif'||ext==='tiff'){
+    previewTiff(f,name,fileId);
   }else if(ext==='pdf'){
     _previewShell(name,fileId,`<div style="padding:0"><iframe src="${f.data}" style="width:100%;height:78vh;border:none;display:block"></iframe></div>`,'modal-xl');
   }else if(ext==='docx'){
@@ -2786,6 +2788,34 @@ function previewFile(fileId,name){
     toast('No preview available for this file type — downloading instead');
     dlFile(fileId);
   }
+}
+
+async function previewTiff(f,name,fileId){
+  _previewLoading(name);
+  try{
+    await _loadLib('https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js',()=>window.UTIF);
+    const bytes=dataUriToBytes(f.data);
+    const ifds=UTIF.decode(bytes.buffer);
+    window._previewTiff={buf:bytes.buffer,ifds};
+    renderTiffPage(name,fileId,0);
+  }catch(err){
+    _previewError(name,fileId,err.message);
+  }
+}
+function renderTiffPage(name,fileId,pageIdx){
+  const {buf,ifds}=window._previewTiff;
+  const page=ifds[pageIdx];
+  UTIF.decodeImage(buf,page,ifds);
+  const rgba=UTIF.toRGBA8(page);
+  const canvas=document.createElement('canvas');
+  canvas.width=page.width;canvas.height=page.height;
+  const ctx=canvas.getContext('2d');
+  const imgData=ctx.createImageData(page.width,page.height);
+  imgData.data.set(rgba);
+  ctx.putImageData(imgData,0,0);
+  const dataUrl=canvas.toDataURL('image/png');
+  const tabs=ifds.length>1?`<div class="sheet-tabs">${ifds.map((_,i)=>`<div class="sheet-tab ${i===pageIdx?'on':''}" onclick="renderTiffPage('${escAttr(name)}','${fileId}',${i})">Page ${i+1}</div>`).join('')}</div>`:'';
+  _previewShell(name,fileId,`${tabs}<div class="mb" style="text-align:center;padding:16px"><img src="${dataUrl}" style="max-width:100%;max-height:70vh;border-radius:8px"></div>`,'modal-lg');
 }
 
 async function previewDocx(f,name,fileId){
