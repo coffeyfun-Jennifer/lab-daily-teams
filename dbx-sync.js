@@ -27,7 +27,12 @@
   // Absolute root for all of this app's Dropbox paths. Full Dropbox apps
   // (needed for cross-account folder sharing) can't rely on the implicit
   // App-folder-relative paths a Scoped App gets, so every path is explicit.
-  const DBX_ROOT = '/LabDaily';
+  // This must stay '/LabDaily-Guoyi Jiang' — that's the folder this
+  // account's shared "Share Data Folder" link actually points to. A prior
+  // Dropbox App key switch caused a second, disconnected '/LabDaily' folder
+  // to get created; its data (as of 2026-07-13) has been merged in here so
+  // nothing from that period was lost.
+  const DBX_ROOT = '/LabDaily-Guoyi Jiang';
 
   // ── PKCE helpers ──
   function b64url(buf) {
