@@ -219,10 +219,20 @@
     return text ? JSON.parse(text) : {};
   }
 
-  async function dbxUploadJson(path, obj, isRetry) {
+  // `knownRev`, when given, uploads with mode `update: knownRev` instead of a
+  // blind `overwrite` — Dropbox then rejects the write (409 path/conflict) if
+  // the file changed server-side since we last saw it, instead of silently
+  // clobbering it. Passing `null` (key confirmed not to exist yet, from a
+  // successful pull that 404'd) uses `add`, which likewise fails instead of
+  // overwriting if something unexpectedly exists there already. Omitting the
+  // argument entirely keeps the old unconditional-overwrite behavior, for
+  // callers (pushRaw) that intentionally bypass this check. Returns the new
+  // rev on success so the caller can keep its knownRev in sync.
+  async function dbxUploadJson(path, obj, knownRev, isRetry) {
     const token = await ensureFreshToken(isRetry);
     if (!token) throw new Error('Dropbox session expired — please reconnect.');
-    const apiArg = { path, mode: 'overwrite', mute: true };
+    const mode = knownRev === undefined ? 'overwrite' : knownRev === null ? 'add' : { '.tag': 'update', update: knownRev };
+    const apiArg = { path, mode, mute: true };
     const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
       method: 'POST',
       headers: {
@@ -234,9 +244,11 @@
     });
     if (!res.ok) {
       const err = await res.text();
-      if (!isRetry && err.includes('invalid_access_token')) return dbxUploadJson(path, obj, true);
+      if (!isRetry && err.includes('invalid_access_token')) return dbxUploadJson(path, obj, knownRev, true);
       throw new Error('Dropbox upload failed: ' + err);
     }
+    const result = await res.json();
+    return result.rev;
   }
 
   // ── Mirror a raw uploaded file into a human-browsable folder tree —
@@ -275,6 +287,9 @@
     return uploadRawFile(path, file);
   }
 
+  // Also returns the file's `rev` (via the Dropbox-API-Result response
+  // header) so callers that need optimistic-concurrency (pullAll) can track
+  // it; plain callers (pullRaw, readSharedFileJson, etc.) just ignore it.
   async function dbxDownloadJson(path, isRetry) {
     const token = await ensureFreshToken(isRetry);
     if (!token) throw new Error('Dropbox session expired — please reconnect.');
@@ -282,23 +297,38 @@
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Dropbox-API-Arg': JSON.stringify({ path }) }
     });
-    if (res.status === 409) return undefined; // path not found (first-time user)
+    if (res.status === 409) return { data: undefined, rev: null }; // path not found (first-time user)
     if (!res.ok) {
       const err = await res.text();
       if (!isRetry && err.includes('invalid_access_token')) return dbxDownloadJson(path, true);
       throw new Error('Dropbox download failed: ' + err);
     }
-    return res.json();
+    let rev = null;
+    try { rev = JSON.parse(res.headers.get('Dropbox-API-Result') || 'null')?.rev ?? null; } catch { }
+    return { data: await res.json(), rev };
   }
 
-  // ── Pull all data down from Dropbox into (namespaced) localStorage ──
+  // ── Pull all data down from Dropbox into (namespaced) localStorage.
+  //    Tracks each key's Dropbox `rev` in knownRevs so doPush can use
+  //    optimistic-concurrency instead of blindly overwriting; a key whose
+  //    pull fails is added to pullFailedKeys so doPush refuses to push it
+  //    (with a stale, possibly near-empty local copy) until a fresh pull
+  //    succeeds — this is what let a bad local copy silently clobber real
+  //    Dropbox data on 2026-08-04 (records/files/atts/projects.json all
+  //    got overwritten with a stale near-empty snapshot within minutes of
+  //    a real save). ──
+  const knownRevs = {};
+  const pullFailedKeys = new Set();
   async function pullAll() {
     for (const k of SYNC_KEYS) {
       try {
-        const val = await dbxDownloadJson(`${DBX_ROOT}/data/${k}.json`);
-        if (val !== undefined) writeRaw(nsKey(k), JSON.stringify(val));
+        const { data, rev } = await dbxDownloadJson(`${DBX_ROOT}/data/${k}.json`);
+        knownRevs[k] = rev;
+        pullFailedKeys.delete(k);
+        if (data !== undefined) writeRaw(nsKey(k), JSON.stringify(data));
       } catch (e) {
         console.error('Dropbox pull failed for', k, e);
+        pullFailedKeys.add(k);
       }
     }
   }
@@ -313,14 +343,27 @@
   }
   async function doPush(k) {
     if (!isLoggedIn()) return;
+    if (pullFailedKeys.has(k)) {
+      console.error(`LabDaily: refusing to push "${k}" to Dropbox — its last pull failed, so this browser's copy may be stale. Reload the page to re-sync before this key can be saved again.`);
+      if (typeof toast === 'function') toast(`⚠️ Could not confirm "${k}" is up to date — reload the page before making more changes, or your edits may not save.`, 'err');
+      return;
+    }
     pendingPushes++;
     updateSyncBadge();
     try {
       const raw = readRaw(nsKey(k));
       const val = raw ? JSON.parse(raw) : null;
-      await dbxUploadJson(`${DBX_ROOT}/data/${k}.json`, val);
+      knownRevs[k] = await dbxUploadJson(`${DBX_ROOT}/data/${k}.json`, val, knownRevs[k]);
     } catch (e) {
       console.error('Dropbox push failed for', k, e);
+      // A conflict here means Dropbox has a newer version than this browser
+      // has ever seen (e.g. another tab/device saved first) — block further
+      // pushes for this key rather than let the next edit retry with the
+      // same stale rev and clobber it via a well-intentioned but wrong retry.
+      if (String(e.message).includes('conflict')) {
+        pullFailedKeys.add(k);
+        if (typeof toast === 'function') toast(`⚠️ "${k}" was changed elsewhere (another tab/device?) — reload the page to get the latest before editing further.`, 'err');
+      }
     } finally {
       pendingPushes--;
       updateSyncBadge();
@@ -466,7 +509,7 @@
   //    counterpart of pushRaw, e.g. so a PI who connected Dropbox just to
   //    save comments can see their own previously-saved ones again ──
   async function pullRaw(key) {
-    return dbxDownloadJson(`${DBX_ROOT}/data/${key}.json`);
+    return (await dbxDownloadJson(`${DBX_ROOT}/data/${key}.json`)).data;
   }
 
   window.LDDropbox = {
